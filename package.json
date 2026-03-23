@@ -1,0 +1,8 @@
+{
+  "name": "shop",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix client",
+    "dev:live": "docker compose up -d db api && docker compose stop web && npm run dev --prefix client"
+  }
+}
