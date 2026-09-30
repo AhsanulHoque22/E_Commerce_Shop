@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://e-commerce-shop-api-m4b1.onrender.com/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://e-commerce-shop-api-m4b1.onrender.com/uploads/:path*" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
+}
