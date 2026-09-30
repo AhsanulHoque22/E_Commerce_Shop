@@ -1,6 +1,10 @@
 import { create } from "zustand";
 
-type PendingCart = { productPublicId: string; quantity: number } | null;
+type PendingCart = {
+  productPublicId: string;
+  quantity: number;
+  productVariantPublicId?: string;
+} | null;
 
 type AuthUiState = {
   loginOpen: boolean;

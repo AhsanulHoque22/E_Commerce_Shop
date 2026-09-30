@@ -25,6 +25,22 @@ const schema = z.object({
     (v) => v === true || v === "true" || v === "1",
     z.boolean()
   ).default(false),
+  // SSLCommerz (Bangladesh payment aggregator: bKash/Nagad/Rocket/cards). Sandbox
+  // credentials are free and instant at https://developer.sslcommerz.com/registration/
+  SSLCOMMERZ_STORE_ID: z.string().optional(),
+  SSLCOMMERZ_STORE_PASSWORD: z.string().optional(),
+  SSLCOMMERZ_SANDBOX: z.preprocess(
+    (v) => v === true || v === "true" || v === "1",
+    z.boolean()
+  ).default(true),
+  // Outbound email (password reset, order status notifications). Any SMTP
+  // provider works (Brevo/Resend/Gmail app password/etc). Unset in dev = logs
+  // to console instead of sending, matching the existing OTP dev-fallback.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

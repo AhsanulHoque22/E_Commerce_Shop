@@ -1,19 +1,19 @@
 const orderTone: Record<string, string> = {
-  PENDING_APPROVAL: "bg-amber-100 text-amber-900",
-  APPROVED: "bg-sky-100 text-sky-900",
-  PAYMENT_PENDING: "bg-violet-100 text-violet-900",
-  PAID: "bg-emerald-100 text-emerald-900",
-  SHIPPED: "bg-blue-100 text-blue-900",
-  OUT_FOR_DELIVERY: "bg-indigo-100 text-indigo-900",
-  DELIVERED: "bg-teal-100 text-teal-900",
-  COMPLETED: "bg-zinc-200 text-zinc-900",
-  CANCELLED: "bg-red-100 text-red-900",
+  PENDING_APPROVAL: "bg-amber-400/10 text-amber-300",
+  APPROVED: "bg-sky-400/10 text-sky-300",
+  PAYMENT_PENDING: "bg-violet-400/10 text-violet-300",
+  PAID: "bg-emerald-400/10 text-emerald-300",
+  SHIPPED: "bg-blue-400/10 text-blue-300",
+  OUT_FOR_DELIVERY: "bg-indigo-400/10 text-indigo-300",
+  DELIVERED: "bg-teal-400/10 text-teal-300",
+  COMPLETED: "bg-ink-700 text-ink-200",
+  CANCELLED: "bg-red-400/10 text-red-300",
 };
 
 const productTone: Record<string, string> = {
-  ACTIVE: "bg-emerald-100 text-emerald-900",
-  OUT_OF_STOCK: "bg-amber-100 text-amber-900",
-  DISCONTINUED: "bg-zinc-200 text-zinc-700",
+  ACTIVE: "bg-emerald-400/10 text-emerald-300",
+  OUT_OF_STOCK: "bg-amber-400/10 text-amber-300",
+  DISCONTINUED: "bg-ink-700 text-ink-300",
 };
 
 export function OrderStatusBadge({ status }: { status: string }) {

@@ -64,6 +64,16 @@ export function orderAllowsReceipt(status: OrderStatus): boolean {
   return RECEIPT_ALLOWED_STATUSES.includes(status);
 }
 
+/** Statuses in which a gateway (SSLCommerz) payment can be initiated/confirmed for an order. */
+export const GATEWAY_PAYMENT_ALLOWED_STATUSES: OrderStatus[] = [
+  OrderStatus.APPROVED,
+  OrderStatus.PAYMENT_PENDING,
+];
+
+export function orderAllowsGatewayPayment(status: OrderStatus): boolean {
+  return GATEWAY_PAYMENT_ALLOWED_STATUSES.includes(status);
+}
+
 export function invoiceDocumentPaymentLabel(status: OrderStatus): "INCOMPLETE" | "COMPLETED" {
   if (
     status === OrderStatus.APPROVED ||

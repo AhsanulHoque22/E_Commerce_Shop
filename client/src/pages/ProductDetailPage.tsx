@@ -22,6 +22,15 @@ type CategoryCrumb = {
   attributeDefinitions?: CategoryAttrDef[];
 };
 
+type Variant = {
+  publicId: string;
+  options: Record<string, string>;
+  price: string;
+  comparePrice?: string | null;
+  stock: number;
+  mainImageUrl?: string | null;
+};
+
 type Detail = {
   publicId: string;
   name: string;
@@ -42,6 +51,8 @@ type Detail = {
   reviewSummary: { count: number; average: number | null };
   isFavorited?: boolean;
   canSubmitReview?: boolean;
+  variants?: Variant[];
+  hasVariants?: boolean;
 };
 
 type ReviewRow = {
@@ -58,7 +69,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
       <span className="relative inline-block">
         {children}
         <span
-          className="absolute -bottom-1 left-[55%] h-1 w-[40%] rounded-full bg-amber-400"
+          className="absolute -bottom-1 left-[55%] h-1 w-[40%] rounded-full bg-accent"
           aria-hidden
         />
       </span>
@@ -84,7 +95,7 @@ function Stars({
           disabled={disabled}
           className={`text-xl transition ${
             onChange ? "cursor-pointer hover:scale-110" : ""
-          } ${n <= value ? "text-amber-400" : "text-border"}`}
+          } ${n <= value ? "text-amber-400" : "text-ink-600"}`}
           onClick={() => onChange?.(n)}
           aria-label={`${n} stars`}
         >
@@ -107,6 +118,7 @@ export function ProductDetailPage() {
   const [descOpen, setDescOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
 
   const q = useQuery({
     queryKey: ["product", publicId],
@@ -122,10 +134,20 @@ export function ProductDetailPage() {
   });
 
   const addMut = useMutation({
-    mutationFn: (quantity: number) =>
+    mutationFn: ({
+      quantity,
+      productVariantPublicId,
+    }: {
+      quantity: number;
+      productVariantPublicId?: string;
+    }) =>
       apiFetch("/api/cart/items", {
         method: "POST",
-        body: JSON.stringify({ productPublicId: publicId, quantity }),
+        body: JSON.stringify({
+          productPublicId: publicId,
+          quantity,
+          ...(productVariantPublicId ? { productVariantPublicId } : {}),
+        }),
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["cart"] });
@@ -186,18 +208,73 @@ export function ProductDetailPage() {
   });
 
   const p = q.data;
+  const variants = p?.variants ?? [];
+  const hasVariants = Boolean(p?.hasVariants) && variants.length > 0;
+
+  /** Distinct values available per option key, e.g. { color: ["Black","Silver"], storage: ["128GB","256GB"] }. */
+  const optionValuesByKey = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const v of variants) {
+      for (const [key, value] of Object.entries(v.options)) {
+        const existing = map.get(key) ?? [];
+        if (!existing.includes(value)) {
+          map.set(key, [...existing, value]);
+        }
+      }
+    }
+    return map;
+  }, [variants]);
+
+  const selectedVariant = useMemo(() => {
+    if (!hasVariants) {
+      return null;
+    }
+    const keys = [...optionValuesByKey.keys()];
+    if (keys.some((k) => !selectedOptions[k])) {
+      return null;
+    }
+    return (
+      variants.find((v) =>
+        keys.every((k) => v.options[k] === selectedOptions[k])
+      ) ?? null
+    );
+  }, [hasVariants, optionValuesByKey, selectedOptions, variants]);
+
+  /** Would picking this option value (with the rest of the current selection) match any variant, and is it in stock? */
+  function optionChoiceState(key: string, value: string): "available" | "out_of_stock" | "invalid" {
+    const candidate = { ...selectedOptions, [key]: value };
+    const keys = [...optionValuesByKey.keys()];
+    const matches = variants.filter((v) =>
+      keys.every((k) => !candidate[k] || v.options[k] === candidate[k])
+    );
+    if (matches.length === 0) {
+      return "invalid";
+    }
+    return matches.some((v) => v.stock > 0) ? "available" : "out_of_stock";
+  }
+
+  const effectivePrice = selectedVariant ? selectedVariant.price : p?.price;
+  const effectiveComparePrice = selectedVariant
+    ? selectedVariant.comparePrice
+    : p?.comparePrice;
+  const effectiveStock = selectedVariant ? selectedVariant.stock : (p?.stock ?? 0);
+  const effectiveInStock = hasVariants
+    ? Boolean(selectedVariant) && selectedVariant!.stock > 0
+    : Boolean(p?.inStock);
+  const variantMainImage = selectedVariant?.mainImageUrl ?? null;
 
   const allImages = useMemo(() => {
     if (!p) {
       return [];
     }
     const g = Array.isArray(p.galleryUrls) ? p.galleryUrls : [];
-    if (p.mainImageUrl) {
-      const rest = g.filter((u) => u !== p.mainImageUrl);
-      return [p.mainImageUrl, ...rest];
+    const primary = variantMainImage ?? p.mainImageUrl;
+    if (primary) {
+      const rest = g.filter((u) => u !== primary);
+      return [primary, ...rest];
     }
     return g;
-  }, [p]);
+  }, [p, variantMainImage]);
 
   const descriptionText =
     p && typeof p.description === "string" ? p.description : "";
@@ -230,20 +307,20 @@ export function ProductDetailPage() {
         <div className="h-[min(60vh,520px)] animate-pulse rounded-3xl bg-border" />
       )}
       {q.isError && (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-red-900">
+        <div className="rounded-3xl border border-red-400/30 bg-red-400/10 p-8 text-red-300">
           <p className="font-display text-lg font-semibold">Couldn’t load product</p>
           <p className="mt-2 text-sm opacity-90">
             {(q.error as Error).message ||
               "Check that the API is running and the database is up to date."}
           </p>
-          <p className="mt-3 text-xs text-red-800/80">
+          <p className="mt-3 text-xs text-red-300/80">
             If you recently pulled code, run{" "}
-            <code className="rounded bg-red-100 px-1">npx prisma db push</code> in
+            <code className="rounded bg-red-400/20 px-1">npx prisma db push</code> in
             the server folder, then restart the API.
           </p>
           <Link
             to="/products"
-            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-ink px-5 py-2 text-sm font-semibold text-white"
+            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white hover:bg-accent-600"
           >
             Back to shop
           </Link>
@@ -297,17 +374,17 @@ export function ProductDetailPage() {
             <div className="flex flex-col">
               <div className="flex flex-wrap gap-2">
                 {badges.new && (
-                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-800">
+                  <span className="rounded-full bg-violet-400/15 px-2.5 py-0.5 text-xs font-semibold text-violet-300">
                     New
                   </span>
                 )}
                 {badges.bestseller && (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                  <span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
                     Best seller
                   </span>
                 )}
                 {badges.limitedStock && (
-                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                  <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
                     Limited stock
                   </span>
                 )}
@@ -328,13 +405,17 @@ export function ProductDetailPage() {
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium ${
-                    p.inStock
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-red-50 text-red-800"
+                    effectiveInStock
+                      ? "bg-emerald-400/10 text-emerald-300"
+                      : "bg-red-400/10 text-red-300"
                   }`}
                 >
                   <span className="h-2 w-2 rounded-full bg-current" />
-                  {p.inStock ? "In stock" : "Out of stock"}
+                  {hasVariants && !selectedVariant
+                    ? "Select options"
+                    : effectiveInStock
+                      ? `In stock${selectedVariant ? ` (${effectiveStock})` : ""}`
+                      : "Out of stock"}
                 </span>
                 {reviewSummary.count > 0 && (
                   <span className="text-sm text-muted">
@@ -347,12 +428,62 @@ export function ProductDetailPage() {
 
               <div className="mt-6 flex flex-wrap items-baseline gap-3">
                 <p className="bg-gradient-to-r from-ink to-ink/80 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl">
-                  BDT {p.price}
+                  {hasVariants && !selectedVariant ? "From " : ""}BDT {effectivePrice}
                 </p>
-                {p.comparePrice ? (
-                  <p className="text-lg text-muted line-through">BDT {p.comparePrice}</p>
+                {effectiveComparePrice ? (
+                  <p className="text-lg text-muted line-through">
+                    BDT {effectiveComparePrice}
+                  </p>
                 ) : null}
               </div>
+
+              {hasVariants && (
+                <div className="mt-6 space-y-4">
+                  {[...optionValuesByKey.entries()].map(([key, values]) => (
+                    <div key={key}>
+                      <p className="text-sm font-medium text-muted capitalize">
+                        {key}
+                        {selectedOptions[key] ? `: ${selectedOptions[key]}` : ""}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {values.map((value) => {
+                          const state = optionChoiceState(key, value);
+                          const isSelected = selectedOptions[key] === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={state === "invalid"}
+                              onClick={() =>
+                                setSelectedOptions((prev) => ({ ...prev, [key]: value }))
+                              }
+                              className={`min-h-10 rounded-xl border px-3.5 py-1.5 text-sm font-medium transition ${
+                                isSelected
+                                  ? "border-accent bg-accent/10 text-ink"
+                                  : "border-border bg-surface text-muted hover:border-accent/50 hover:text-ink"
+                              } ${
+                                state !== "available" && !isSelected
+                                  ? "opacity-40"
+                                  : ""
+                              }`}
+                              title={
+                                state === "out_of_stock"
+                                  ? "Out of stock in this combination"
+                                  : state === "invalid"
+                                    ? "Not available in this combination"
+                                    : undefined
+                              }
+                            >
+                              {value}
+                              {state === "out_of_stock" ? " (out of stock)" : ""}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {user?.role === "ADMIN" ? (
                 <Link
@@ -386,43 +517,76 @@ export function ProductDetailPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                    <button
-                      type="button"
-                      disabled={!p.inStock || addMut.isPending}
-                      onClick={() => {
-                        if (!user) {
-                          openLogin({ productPublicId: p.publicId, quantity: qty });
-                          return;
-                        }
-                        addMut.mutate(qty);
-                      }}
-                      className="min-h-12 flex-1 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-3 text-sm font-bold text-ink shadow-lg shadow-amber-500/25 transition hover:brightness-105 disabled:opacity-50"
-                    >
-                      Add to cart
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!p.inStock || addMut.isPending}
-                      onClick={async () => {
-                        if (!user) {
-                          openLogin({ productPublicId: p.publicId, quantity: qty });
-                          return;
-                        }
-                        await addMut.mutateAsync(qty);
-                        navigate("/checkout");
-                      }}
-                      className="min-h-12 flex-1 rounded-2xl border-2 border-amber-400 bg-surface px-6 py-3 text-sm font-bold text-ink transition hover:bg-amber-50 disabled:opacity-50"
-                    >
-                      Buy now
-                    </button>
-                  </div>
+                  {(() => {
+                    const variantMissing = hasVariants && !selectedVariant;
+                    const purchaseDisabled =
+                      !effectiveInStock || addMut.isPending || variantMissing;
+                    return (
+                      <>
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                          <button
+                            type="button"
+                            disabled={purchaseDisabled}
+                            onClick={() => {
+                              if (!user) {
+                                openLogin({
+                                  productPublicId: p.publicId,
+                                  quantity: qty,
+                                  productVariantPublicId: selectedVariant?.publicId,
+                                });
+                                return;
+                              }
+                              addMut.mutate({
+                                quantity: qty,
+                                productVariantPublicId: selectedVariant?.publicId,
+                              });
+                            }}
+                            className="min-h-12 flex-1 rounded-2xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-lg shadow-accent/25 transition hover:bg-accent-600 disabled:opacity-50"
+                          >
+                            Add to cart
+                          </button>
+                          <button
+                            type="button"
+                            disabled={purchaseDisabled}
+                            onClick={async () => {
+                              if (!user) {
+                                openLogin({
+                                  productPublicId: p.publicId,
+                                  quantity: qty,
+                                  productVariantPublicId: selectedVariant?.publicId,
+                                });
+                                return;
+                              }
+                              await addMut.mutateAsync({
+                                quantity: qty,
+                                productVariantPublicId: selectedVariant?.publicId,
+                              });
+                              navigate("/checkout");
+                            }}
+                            className="min-h-12 flex-1 rounded-2xl border-2 border-accent bg-surface px-6 py-3 text-sm font-bold text-ink transition hover:bg-accent/10 disabled:opacity-50"
+                          >
+                            Buy now
+                          </button>
+                        </div>
+                        {variantMissing ? (
+                          <p className="mt-2 text-sm text-amber-300" role="alert">
+                            Select all options above to continue.
+                          </p>
+                        ) : null}
+                        {addMut.isError ? (
+                          <p className="mt-2 text-sm text-red-400" role="alert">
+                            {(addMut.error as Error).message}
+                          </p>
+                        ) : null}
+                      </>
+                    );
+                  })()}
 
                   <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                     <button
                       type="button"
                       className={`inline-flex items-center gap-2 text-sm font-semibold transition ${
-                        p.isFavorited ? "text-rose-600" : "text-muted hover:text-ink"
+                        p.isFavorited ? "text-rose-400" : "text-muted hover:text-ink"
                       }`}
                       onClick={() => {
                         if (sessionLoading) {
@@ -450,13 +614,13 @@ export function ProductDetailPage() {
                           : "Add to favorites"}
                     </button>
                     {favMut.isError ? (
-                      <p className="text-sm text-red-600" role="alert">
+                      <p className="text-sm text-red-400" role="alert">
                         {(favMut.error as Error).message}
                       </p>
                     ) : null}
                     <Link
                       to="/cart?tab=saved"
-                      className="text-sm font-medium text-accent hover:underline"
+                      className="text-sm font-medium text-accent-400 hover:underline"
                     >
                       View saved items
                     </Link>
@@ -476,7 +640,7 @@ export function ProductDetailPage() {
                 {descNeedToggle ? (
                   <button
                     type="button"
-                    className="mt-4 text-sm font-bold text-ink hover:text-accent"
+                    className="mt-4 text-sm font-bold text-ink hover:text-accent-400"
                     onClick={() => setDescOpen((o) => !o)}
                   >
                     {descOpen ? "Show less" : "Read more"}
@@ -585,12 +749,12 @@ export function ProductDetailPage() {
                     type="button"
                     disabled={reviewMut.isPending || comment.trim().length < 2}
                     onClick={() => reviewMut.mutate()}
-                    className="mt-4 min-h-11 rounded-xl bg-ink px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    className="mt-4 min-h-11 rounded-xl bg-accent px-6 py-2 text-sm font-semibold text-white hover:bg-accent-600 disabled:opacity-50"
                   >
                     Submit review
                   </button>
                   {reviewMut.isError ? (
-                    <p className="mt-2 text-sm text-red-600">
+                    <p className="mt-2 text-sm text-red-400">
                       {(reviewMut.error as Error).message}
                     </p>
                   ) : null}
@@ -601,7 +765,7 @@ export function ProductDetailPage() {
                 <p className="mt-6 text-sm text-muted">
                   <button
                     type="button"
-                    className="font-semibold text-accent hover:underline"
+                    className="font-semibold text-accent-400 hover:underline"
                     onClick={() => openLogin()}
                   >
                     Log in

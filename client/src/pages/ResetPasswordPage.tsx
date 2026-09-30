@@ -75,8 +75,8 @@ export function ResetPasswordPage() {
           <p
             className={
               msg.includes("updated")
-                ? "text-sm text-green-700"
-                : "text-sm text-red-600"
+                ? "text-sm text-emerald-400"
+                : "text-sm text-red-400"
             }
           >
             {msg}
@@ -91,7 +91,7 @@ export function ResetPasswordPage() {
         </button>
       </form>
       <p className="mt-6 text-center text-sm text-muted">
-        <Link to="/" className="text-accent hover:underline">
+        <Link to="/" className="text-accent-400 hover:underline">
           Back to shop
         </Link>
       </p>

@@ -10,6 +10,7 @@ import {
   orderAllowsInvoice,
   orderAllowsReceipt,
 } from "./orderStatusFlow.js";
+import { validateCoupon, recordCouponRedemption } from "../coupon/coupon.service.js";
 
 /** Shape of `Product` per prisma/schema.prisma (avoids stale `prisma generate` typings). */
 type OrderCartProduct = {
@@ -20,6 +21,14 @@ type OrderCartProduct = {
   readyToShip: boolean;
   status: "ACTIVE" | "OUT_OF_STOCK" | "DISCONTINUED";
 };
+
+/** Shape of `ProductVariant` per prisma/schema.prisma. */
+type OrderCartVariant = {
+  id: string;
+  price: Prisma.Decimal;
+  stock: number;
+  options: Prisma.JsonValue;
+} | null;
 
 export type ShippingAddress = {
   fullName: string;
@@ -120,17 +129,19 @@ export async function createOrderFromCart(
     contactPhone?: string;
     paymentMethod: string;
     notes?: string;
+    couponCode?: string;
   }
 ) {
   const cart = await prisma.cartItem.findMany({
     where: { userId },
-    include: { product: true },
+    include: { product: true, productVariant: true },
   });
   if (cart.length === 0) {
     throw new AppError(400, "Cart is empty", "EMPTY_CART");
   }
   for (const row of cart) {
     const p = row.product as unknown as OrderCartProduct;
+    const v = row.productVariant as unknown as OrderCartVariant;
     if (p.status !== "ACTIVE") {
       throw new AppError(
         400,
@@ -138,7 +149,8 @@ export async function createOrderFromCart(
         "INACTIVE"
       );
     }
-    if (p.stock < row.quantity || p.stock <= 0) {
+    const stock = v ? v.stock : p.stock;
+    if (stock < row.quantity || stock <= 0) {
       throw new AppError(400, "Cart has items with insufficient stock", "NO_STOCK");
     }
   }
@@ -146,8 +158,9 @@ export async function createOrderFromCart(
   const { advancePercent } = computeAdvancePercent(
     cart.map((c) => {
       const p = c.product as unknown as OrderCartProduct;
+      const v = c.productVariant as unknown as OrderCartVariant;
       return {
-        stock: p.stock,
+        stock: v ? v.stock : p.stock,
         quantity: c.quantity,
         readyToShip: p.readyToShip,
       };
@@ -157,18 +170,29 @@ export async function createOrderFromCart(
   let subtotal = 0;
   const orderItems = cart.map((c) => {
     const p = c.product as unknown as OrderCartProduct;
-    const unit = Number(p.price);
+    const v = c.productVariant as unknown as OrderCartVariant;
+    const unit = v ? Number(v.price) : Number(p.price);
     subtotal += unit * c.quantity;
     return {
       productId: p.id,
+      productVariantId: v?.id,
       quantity: c.quantity,
-      unitPrice: p.price,
+      unitPrice: v ? v.price : p.price,
       nameSnapshot: p.name,
+      variantSnapshot: v ? (v.options as Prisma.InputJsonValue) : undefined,
     };
   });
 
+  let couponId: string | null = null;
+  let discount = 0;
+  if (input.couponCode?.trim()) {
+    const result = await validateCoupon(input.couponCode.trim(), userId, subtotal);
+    couponId = result.couponId;
+    discount = result.discount;
+  }
+
   const shippingTotal = 0;
-  const total = subtotal + shippingTotal;
+  const total = subtotal + shippingTotal - discount;
   const advanceAmount = (total * advancePercent) / 100;
 
   const order = await prisma.$transaction(async (tx) => {
@@ -194,6 +218,10 @@ export async function createOrderFromCart(
       include: { items: true },
     });
 
+    if (couponId) {
+      await recordCouponRedemption(couponId, userId, o.id, discount, tx);
+    }
+
     await tx.cartItem.deleteMany({ where: { userId } });
     return o;
   });
@@ -207,6 +235,7 @@ export async function createOrderFromCart(
       metadata: {
         total: roundMoney(Number(order.total)),
         advancePercent: order.advancePercent,
+        couponDiscount: discount > 0 ? roundMoney(discount) : undefined,
       },
     },
   });
@@ -216,6 +245,7 @@ export async function createOrderFromCart(
     status: order.status,
     subtotal: roundMoney(Number(order.subtotal)),
     shippingTotal: roundMoney(Number(order.shippingTotal)),
+    discount: discount > 0 ? roundMoney(discount) : undefined,
     total: roundMoney(Number(order.total)),
     advancePercent: order.advancePercent,
     advanceAmount: roundMoney(Number(order.advanceAmount)),

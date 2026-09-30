@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   ProductsShopSidebar,
   normalizeCategoryTree,
+  attrParamKey,
   type CategoryTreeNode,
   type ProductFacets,
 } from "@/components/ProductsShopSidebar";
@@ -16,6 +17,15 @@ export function ProductsPage() {
   const brand = sp.get("brand") ?? "";
   const minPrice = sp.get("minPrice") ?? "";
   const maxPrice = sp.get("maxPrice") ?? "";
+  // Every attr[key]=value pair currently in the URL, e.g. { ram: "6GB" }.
+  const attrFilters: Record<string, string> = {};
+  for (const [k, v] of sp.entries()) {
+    const m = /^attr\[(.+)\]$/.exec(k);
+    if (m) {
+      attrFilters[m[1]] = v;
+    }
+  }
+  const attrKey = JSON.stringify(attrFilters);
 
   const cats = useQuery({
     queryKey: ["categories", "tree"],
@@ -30,7 +40,7 @@ export function ProductsPage() {
   });
 
   const q = useQuery({
-    queryKey: ["products", search, category, brand, minPrice, maxPrice],
+    queryKey: ["products", search, category, brand, minPrice, maxPrice, attrKey],
     queryFn: async () => {
       const qs = new URLSearchParams();
       if (search) {
@@ -48,6 +58,9 @@ export function ProductsPage() {
       if (maxPrice) {
         qs.set("maxPrice", maxPrice);
       }
+      for (const [k, v] of Object.entries(attrFilters)) {
+        qs.set(attrParamKey(k), v);
+      }
       qs.set("limit", "24");
       const url = "/api/products?" + qs.toString();
       return apiFetch<{ items: CardProduct[]; total: number }>(url);
@@ -59,7 +72,8 @@ export function ProductsPage() {
     Boolean(category) ||
     Boolean(brand) ||
     Boolean(minPrice) ||
-    Boolean(maxPrice);
+    Boolean(maxPrice) ||
+    Object.keys(attrFilters).length > 0;
 
   const empty =
     q.isSuccess && q.data.total === 0 && filterActive;
@@ -94,7 +108,7 @@ export function ProductsPage() {
               <p className="text-muted">No products match these filters.</p>
               <Link
                 to="/products"
-                className="mt-4 inline-block text-sm font-medium text-accent hover:underline"
+                className="mt-4 inline-block text-sm font-medium text-accent-400 hover:underline"
               >
                 Reset filters
               </Link>

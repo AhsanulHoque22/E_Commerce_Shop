@@ -9,6 +9,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "tsx watch src/app.ts",
+    "test": "tsx --test $(find src -name '*.test.ts')",
     "build": "tsc",
     "start": "node dist/app.js",
     "db:generate": "prisma generate",
@@ -29,6 +30,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^10.0.0",
     "pdfkit": "^0.18.0",
     "pino": "^9.6.0",
     "prisma": "^5.22.0",
@@ -42,6 +44,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.13.10",
+    "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.5",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"

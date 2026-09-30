@@ -49,8 +49,8 @@ export function ProductSearchForm({ variant }: Props) {
 
   const btnCls =
     variant === "header"
-      ? "shrink-0 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
-      : "shrink-0 rounded-xl bg-ink px-5 py-2 text-sm font-semibold text-white hover:opacity-90";
+      ? "shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-600"
+      : "shrink-0 rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white hover:bg-accent-600";
 
   return (
     <form

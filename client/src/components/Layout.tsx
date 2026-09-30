@@ -60,7 +60,7 @@ export function Layout() {
                   <>
                     <Link
                       to="/admin"
-                      className="rounded-lg px-3 py-2 text-sm font-medium text-accent hover:bg-bg"
+                      className="rounded-lg px-3 py-2 text-sm font-medium text-accent-400 hover:bg-bg"
                     >
                       Admin
                     </Link>
@@ -95,14 +95,14 @@ export function Layout() {
                     >
                       Saved
                       {favCount > 0 ? (
-                        <span className="ml-1.5 rounded-full bg-rose-500/15 px-1.5 text-xs font-semibold text-rose-700 tabular-nums">
+                        <span className="ml-1.5 rounded-full bg-rose-400/15 px-1.5 text-xs font-semibold text-rose-300 tabular-nums">
                           {favCount}
                         </span>
                       ) : null}
                     </Link>
                     <Link
                       to="/cart"
-                      className="min-h-11 inline-flex items-center rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                      className="min-h-11 inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-600"
                     >
                       Cart
                     </Link>
@@ -120,7 +120,7 @@ export function Layout() {
                   <button
                     type="button"
                     onClick={() => openLogin()}
-                    className="min-h-11 inline-flex items-center rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                    className="min-h-11 inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-600"
                   >
                     Cart
                   </button>

@@ -1,8 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Navigate, useParams } from "react-router-dom";
 import { OrderTrackingTimeline } from "@/components/OrderTrackingTimeline";
 import { apiFetch, downloadAuthenticatedFile } from "@/services/api";
 import { useSession } from "@/hooks/useSession";
+
+const GATEWAY_PAYABLE_STATUSES = new Set(["APPROVED", "PAYMENT_PENDING"]);
 
 type TimelineStep = { status: string; reachedAt: string | null };
 
@@ -67,6 +69,21 @@ export function OrderDetailPage() {
     enabled: Boolean(user) && Boolean(publicId),
   });
 
+  // Hooks must run unconditionally on every render, so this is declared
+  // before the early returns below (not after) — moving it past them caused
+  // a real "rendered more hooks than previous render" crash whenever `user`
+  // was null/ADMIN on one render and a customer on the next.
+  const payMut = useMutation({
+    mutationFn: () =>
+      apiFetch<{ redirectUrl: string }>(
+        `/api/payment/initiate/${encodeURIComponent(publicId ?? "")}`,
+        { method: "POST", body: JSON.stringify({}) }
+      ),
+    onSuccess: (data) => {
+      window.location.href = data.redirectUrl;
+    },
+  });
+
   if (!user) {
     return <div className="p-10 text-center text-muted">Log in required.</div>;
   }
@@ -97,7 +114,7 @@ export function OrderDetailPage() {
           <p className="text-sm text-muted">ID: {o.publicId}</p>
           <p className="text-sm text-muted">Status: {o.status.replace(/_/g, " ")}</p>
           {o.status === "CANCELLED" ? (
-            <p className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-900">
+            <p className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
               This order was cancelled. Documents below may no longer apply.
             </p>
           ) : null}
@@ -144,6 +161,23 @@ export function OrderDetailPage() {
                 Method selected: {paymentMethodLabel(o.paymentMethod)}
               </p>
             ) : null}
+            {GATEWAY_PAYABLE_STATUSES.has(o.status) && !o.receiptAvailable ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  disabled={payMut.isPending}
+                  onClick={() => payMut.mutate()}
+                  className="inline-flex min-h-11 items-center rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white hover:bg-accent-600 disabled:opacity-50"
+                >
+                  {payMut.isPending ? "Redirecting…" : "Pay online now"}
+                </button>
+                {payMut.isError ? (
+                  <p className="mt-2 text-sm text-red-400">
+                    {(payMut.error as Error).message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {showShipment ? (
@@ -162,7 +196,7 @@ export function OrderDetailPage() {
                     href={trackUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-11 items-center rounded-xl bg-ink px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+                    className="inline-flex min-h-11 items-center rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white hover:bg-accent-600"
                   >
                     Track shipment
                   </a>
@@ -178,8 +212,8 @@ export function OrderDetailPage() {
           <div className="space-y-3">
             <h2 className="font-display text-sm font-semibold">Documents</h2>
             {o.invoiceAvailable ? (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
-                <p className="text-sm font-medium text-amber-950">Invoice</p>
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
+                <p className="text-sm font-medium text-amber-300">Invoice</p>
                 {o.invoicePublicId ? (
                   <p className="mt-1 font-mono text-xs text-muted">{o.invoicePublicId}</p>
                 ) : null}
@@ -188,14 +222,14 @@ export function OrderDetailPage() {
                     Issued {new Date(o.invoiceIssuedAt).toLocaleString()}
                   </p>
                 ) : null}
-                <p className="mt-2 text-sm text-amber-900/90">
+                <p className="mt-2 text-sm text-amber-200/90">
                   {o.documentPaymentStatus === "INCOMPLETE"
                     ? "Payment is still pending for this order. This invoice is not proof of payment."
                     : "Payment is complete — use the payment receipt as proof of payment."}
                 </p>
                 <button
                   type="button"
-                  className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ink px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+                  className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white hover:bg-accent-600"
                   onClick={() =>
                     void downloadAuthenticatedFile(
                       invoicePath,
@@ -213,8 +247,8 @@ export function OrderDetailPage() {
             ) : null}
 
             {o.receiptAvailable ? (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-                <p className="text-sm font-medium text-emerald-950">Payment receipt</p>
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+                <p className="text-sm font-medium text-emerald-300">Payment receipt</p>
                 {o.receiptPublicId ? (
                   <p className="mt-1 font-mono text-xs text-muted">{o.receiptPublicId}</p>
                 ) : null}
@@ -223,12 +257,12 @@ export function OrderDetailPage() {
                     Issued {new Date(o.receiptIssuedAt).toLocaleString()}
                   </p>
                 ) : null}
-                <p className="mt-2 text-sm text-emerald-900/90">
+                <p className="mt-2 text-sm text-emerald-200/90">
                   Payment successful — keep this receipt for your records.
                 </p>
                 <button
                   type="button"
-                  className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-emerald-800 px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+                  className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                   onClick={() =>
                     void downloadAuthenticatedFile(
                       receiptPath,

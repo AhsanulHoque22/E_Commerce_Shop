@@ -1,4 +1,4 @@
-import { OrderStatus, Prisma, ProductStatus } from "@prisma/client";
+import { OrderStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../utils/AppError.js";
 import { newPublicId } from "../../utils/ids.js";
@@ -6,6 +6,11 @@ import {
   ADMIN_STATUS_TRANSITIONS,
   adminCanTransition,
 } from "../order/orderStatusFlow.js";
+import {
+  decrementVariantOrProductStock,
+  restoreVariantOrProductStock,
+} from "../product/productVariantStock.js";
+import { notifyOrderStatusChanged } from "../notify/orderNotify.service.js";
 
 function shouldRestoreStockOnCancel(from: OrderStatus): boolean {
   return (
@@ -15,27 +20,23 @@ function shouldRestoreStockOnCancel(from: OrderStatus): boolean {
   );
 }
 
+/**
+ * Decrements stock (variant-aware — see productVariantStock.ts) with an
+ * atomic conditional UPDATE (WHERE stock >= qty in the same statement as the
+ * decrement) instead of read-then-write, so two admins concurrently approving
+ * orders against the same low-stock product/variant can't both pass a stale
+ * stock check and oversell.
+ */
 async function applyStockDecrement(
   tx: Prisma.TransactionClient,
   orderId: string
 ): Promise<void> {
   const items = await tx.orderItem.findMany({ where: { orderId } });
   for (const line of items) {
-    const p = await tx.product.findUnique({ where: { id: line.productId } });
-    if (!p || p.stock < line.quantity) {
-      throw new AppError(409, "Insufficient stock to approve order", "NO_STOCK");
-    }
-    if (p.status === ProductStatus.DISCONTINUED) {
-      throw new AppError(409, "Product discontinued", "BAD_PRODUCT");
-    }
-    const newStock = p.stock - line.quantity;
-    await tx.product.update({
-      where: { id: line.productId },
-      data: {
-        stock: newStock,
-        status:
-          newStock <= 0 ? ProductStatus.OUT_OF_STOCK : ProductStatus.ACTIVE,
-      },
+    await decrementVariantOrProductStock(tx, {
+      productId: line.productId,
+      productVariantId: line.productVariantId,
+      quantity: line.quantity,
     });
   }
 }
@@ -46,22 +47,10 @@ async function applyStockRestore(
 ): Promise<void> {
   const items = await tx.orderItem.findMany({ where: { orderId } });
   for (const line of items) {
-    const p = await tx.product.findUnique({ where: { id: line.productId } });
-    if (!p) {
-      continue;
-    }
-    const newStock = p.stock + line.quantity;
-    await tx.product.update({
-      where: { id: line.productId },
-      data: {
-        stock: newStock,
-        status:
-          p.status === ProductStatus.DISCONTINUED
-            ? ProductStatus.DISCONTINUED
-            : newStock > 0
-              ? ProductStatus.ACTIVE
-              : ProductStatus.OUT_OF_STOCK,
-      },
+    await restoreVariantOrProductStock(tx, {
+      productId: line.productId,
+      productVariantId: line.productVariantId,
+      quantity: line.quantity,
     });
   }
 }
@@ -200,6 +189,12 @@ export async function adminUpdateOrderStatus(input: {
     },
   });
 
+  // Fire-and-forget: notifyOrderStatusChanged never throws (see
+  // orderNotify.service.ts), so this can't affect the admin response either
+  // way — deliberately not awaited so a slow email/SMS provider never delays
+  // the status-update API call.
+  notifyOrderStatusChanged(input.publicId, from, to).catch(() => {});
+
   return prisma.order.findUnique({
     where: { publicId: input.publicId },
     include: {
@@ -224,9 +219,9 @@ export async function adminListOrders(params: {
   if (params.search?.trim()) {
     const q = params.search.trim();
     where.OR = [
-      { publicId: { contains: q } },
-      { contactEmail: { contains: q } },
-      { user: { email: { contains: q } } },
+      { publicId: { contains: q, mode: "insensitive" } },
+      { contactEmail: { contains: q, mode: "insensitive" } },
+      { user: { email: { contains: q, mode: "insensitive" } } },
     ];
   }
 

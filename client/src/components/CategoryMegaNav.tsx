@@ -74,13 +74,13 @@ export function CategoryMegaNav() {
 
   return (
     <div
-      className="border-t border-white/10 bg-ink text-white"
+      className="border-t border-border bg-ink-900 text-ink"
       onMouseLeave={() => setHoveredId(null)}
     >
       <div className="mx-auto flex max-w-7xl items-stretch px-4 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="flex shrink-0 items-center px-3 py-3 text-white/90 hover:bg-white/10"
+          className="flex shrink-0 items-center px-3 py-3 text-ink/90 hover:bg-white/5"
           aria-label="Home"
           onMouseEnter={() => setHoveredId(null)}
         >
@@ -108,8 +108,8 @@ export function CategoryMegaNav() {
                   className={
                     "flex items-center whitespace-nowrap px-4 py-3 text-sm font-medium tracking-wide transition-colors " +
                     (active
-                      ? "bg-white/20 text-white"
-                      : "text-white/90 hover:bg-white/10")
+                      ? "bg-white/10 text-ink"
+                      : "text-ink/85 hover:bg-white/5")
                   }
                   onMouseEnter={() => setHoveredId(c.publicId)}
                 >
@@ -123,13 +123,13 @@ export function CategoryMegaNav() {
 
       {showPanel && hovered ? (
         <div
-          className="-mt-px hidden border-t border-black/10 bg-[#e8e8e8] pt-px text-ink shadow-lg md:block"
+          className="-mt-px hidden border-t border-border bg-ink-900 pt-px text-ink shadow-lg md:block"
           onMouseEnter={() => setHoveredId(hovered.publicId)}
         >
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <Link
               to={`/products?category=${encodeURIComponent(hovered.publicId)}`}
-              className="mb-4 inline-block text-sm font-bold text-ink hover:text-accent"
+              className="mb-4 inline-block text-sm font-bold text-ink hover:text-accent-400"
               onClick={() => setHoveredId(null)}
             >
               All {hovered.name}
@@ -144,18 +144,18 @@ export function CategoryMegaNav() {
                       <li key={ch.publicId || ch.slug}>
                         <Link
                           to={`/products?category=${encodeURIComponent(ch.publicId)}`}
-                          className="block rounded-md py-1 text-neutral-800 hover:text-accent"
+                          className="block rounded-md py-1 text-muted hover:text-accent-400"
                           onClick={() => setHoveredId(null)}
                         >
                           {ch.name}
                         </Link>
                         {sub.length > 0 ? (
-                          <ul className="mt-1 space-y-1 border-l border-neutral-400/40 pl-3 text-xs text-neutral-600">
+                          <ul className="mt-1 space-y-1 border-l border-border pl-3 text-xs text-subtle">
                             {sub.map((g) => (
                               <li key={g.publicId || g.slug}>
                                 <Link
                                   to={`/products?category=${encodeURIComponent(g.publicId)}`}
-                                  className="block py-0.5 hover:text-accent"
+                                  className="block py-0.5 hover:text-accent-400"
                                   onClick={() => setHoveredId(null)}
                                 >
                                   {g.name}
@@ -171,9 +171,9 @@ export function CategoryMegaNav() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-neutral-600">
+              <p className="text-sm text-muted">
                 <Link
-                  className="font-medium text-accent hover:underline"
+                  className="font-medium text-accent-400 hover:underline"
                   to={`/products?category=${encodeURIComponent(hovered.publicId)}`}
                   onClick={() => setHoveredId(null)}
                 >

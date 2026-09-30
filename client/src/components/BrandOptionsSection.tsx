@@ -137,7 +137,7 @@ export function BrandOptionsSection() {
               <button
                 type="button"
                 aria-label="Previous brands"
-                className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-white/95 text-ink shadow-md backdrop-blur-sm transition hover:bg-white hover:shadow-lg sm:left-1"
+                className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-white/95 text-zinc-900 shadow-md backdrop-blur-sm transition hover:bg-white hover:shadow-lg sm:left-1"
                 onClick={() => scrollByDir(-1)}
               >
                 <span className="sr-only">Previous</span>
@@ -159,7 +159,7 @@ export function BrandOptionsSection() {
               <button
                 type="button"
                 aria-label="Next brands"
-                className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-white/95 text-ink shadow-md backdrop-blur-sm transition hover:bg-white hover:shadow-lg sm:right-1"
+                className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-white/95 text-zinc-900 shadow-md backdrop-blur-sm transition hover:bg-white hover:shadow-lg sm:right-1"
                 onClick={() => scrollByDir(1)}
               >
                 <span className="sr-only">Next</span>

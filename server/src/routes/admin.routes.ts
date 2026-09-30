@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as ctrl from "../controllers/admin.controller.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import productVariantAdminRoutes from "./productVariant.admin.routes.js";
 
 const r = Router();
 
@@ -18,6 +19,7 @@ r.get("/products/:publicId", asyncHandler(ctrl.adminGetProduct));
 r.put("/products/:publicId", asyncHandler(ctrl.adminUpdateProduct));
 r.delete("/products/:publicId", asyncHandler(ctrl.adminRemoveProduct));
 r.post("/products/:publicId/stock", asyncHandler(ctrl.adminStockAdjust));
+r.use("/products/:productPublicId/variants", productVariantAdminRoutes);
 
 r.get("/orders", asyncHandler(ctrl.adminOrdersList));
 r.get("/orders/:publicId", asyncHandler(ctrl.adminOrderOne));

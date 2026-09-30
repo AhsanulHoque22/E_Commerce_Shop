@@ -4,6 +4,7 @@ import { prisma } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../utils/AppError.js";
 import { hashToken } from "../../utils/hashToken.js";
+import { sendEmail } from "../notify/email.service.js";
 
 const SALT_ROUNDS = 12;
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -29,7 +30,12 @@ export async function requestPasswordReset(emailRaw: string): Promise<void> {
     },
   });
   const url = `${clientBaseUrl().replace(/\/$/, "")}/reset-password?token=${raw}`;
-  console.info(`[password reset] ${user.email} → ${url}`);
+  await sendEmail({
+    to: user.email,
+    subject: "Reset your password",
+    text: `We received a request to reset your password. Use the link below within 1 hour to set a new one:\n\n${url}\n\nIf you didn't request this, you can ignore this email.`,
+    html: `<p>We received a request to reset your password. Use the link below within 1 hour to set a new one:</p><p><a href="${url}">${url}</a></p><p>If you didn't request this, you can ignore this email.</p>`,
+  });
 }
 
 export async function resetPasswordWithToken(

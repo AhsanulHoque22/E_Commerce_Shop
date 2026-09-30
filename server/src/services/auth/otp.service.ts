@@ -61,14 +61,6 @@ async function sendSms(to: string, body: string): Promise<void> {
   console.info(`[OTP SMS] Twilio not configured — to=${to} ${body}`);
 }
 
-function twilioConfigured(): boolean {
-  return Boolean(
-    env.TWILIO_ACCOUNT_SID &&
-      env.TWILIO_AUTH_TOKEN &&
-      env.TWILIO_FROM_NUMBER
-  );
-}
-
 export async function requestRegisterOtp(
   phoneRaw: string
 ): Promise<{ devCode?: string }> {
@@ -108,10 +100,7 @@ export async function requestRegisterOtp(
     `Your Aurora Gadgets verification code is: ${code}`
   );
 
-  if (!twilioConfigured()) {
-    return { devCode: code };
-  }
-  if (env.OTP_RETURN_IN_RESPONSE || env.NODE_ENV === "development") {
+  if (env.NODE_ENV !== "production" || env.OTP_RETURN_IN_RESPONSE) {
     return { devCode: code };
   }
   return {};

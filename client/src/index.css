@@ -4,8 +4,25 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
   @apply bg-bg text-ink font-sans antialiased text-base leading-relaxed;
+}
+
+/* Native form controls don't inherit page colors — give every input/select/
+   textarea sane dark-theme defaults in one place instead of per-component. */
+input,
+textarea,
+select {
+  @apply bg-surface text-ink placeholder:text-subtle;
+}
+
+::selection {
+  @apply bg-accent/40 text-ink;
+}
+
+* {
+  scrollbar-color: theme("colors.ink.600") transparent;
 }

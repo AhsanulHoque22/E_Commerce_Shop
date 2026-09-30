@@ -18,6 +18,8 @@ export type ProductListParams = {
   maxPrice?: number;
   featured?: boolean;
   brand?: string;
+  /** Category-defined attribute key/value filters, e.g. { ram: "6GB" }. */
+  attributes?: Record<string, string>;
 };
 
 export type ProductAdminListParams = {
@@ -31,6 +33,41 @@ export type ProductAdminListParams = {
 
 function decimalToString(d: Prisma.Decimal): string {
   return d.toString();
+}
+
+type VariantForSummary = {
+  price: Prisma.Decimal;
+  comparePrice: Prisma.Decimal | null;
+  stock: number;
+};
+
+/**
+ * A variant-bearing product is sold by variant: its own price/stock/comparePrice
+ * columns are stale fallbacks. This computes the storefront-facing numbers
+ * (lowest price for "from $X", summed stock, comparePrice of the cheapest
+ * variant) from the ProductVariant rows instead. Returns null for products
+ * with no variants, so callers fall back to the product's own columns.
+ */
+function summarizeVariants(
+  variants: VariantForSummary[]
+): { price: string; comparePrice: string | null; stock: number; inStock: boolean } | null {
+  if (variants.length === 0) {
+    return null;
+  }
+  let cheapest = variants[0]!;
+  let stock = 0;
+  for (const v of variants) {
+    stock += v.stock;
+    if (Number(v.price) < Number(cheapest.price)) {
+      cheapest = v;
+    }
+  }
+  return {
+    price: decimalToString(cheapest.price),
+    comparePrice: cheapest.comparePrice ? decimalToString(cheapest.comparePrice) : null,
+    stock,
+    inStock: stock > 0,
+  };
 }
 
 function parseGalleryUrls(raw: unknown): string[] {
@@ -98,21 +135,30 @@ async function categoryIdsIncludingDescendants(
   return ids;
 }
 
-export async function getProductFacets() {
-  const [agg, brandRows] = await Promise.all([
+/** Optionally scoped to one category (+ its descendants) so attribute facets only show relevant keys. */
+export async function getProductFacets(categoryPublicId?: string) {
+  const categoryScope: Prisma.ProductWhereInput = {};
+  if (categoryPublicId) {
+    const ids = await categoryIdsIncludingDescendants(categoryPublicId);
+    categoryScope.categoryId = { in: ids ?? [] };
+  }
+  const scopedWhere: Prisma.ProductWhereInput = { ...storefrontWhere, ...categoryScope };
+
+  const [agg, brandRows, attrRows] = await Promise.all([
     prisma.product.aggregate({
-      where: storefrontWhere,
+      where: scopedWhere,
       _min: { price: true },
       _max: { price: true },
     }),
     prisma.product.findMany({
-      where: {
-        ...storefrontWhere,
-        brand: { not: null },
-      },
+      where: { ...scopedWhere, brand: { not: null } },
       select: { brand: true },
       distinct: ["brand"],
       orderBy: { brand: "asc" },
+    }),
+    prisma.product.findMany({
+      where: scopedWhere,
+      select: { attributes: true },
     }),
   ]);
   const priceMin = agg._min.price != null ? Number(agg._min.price) : 0;
@@ -120,7 +166,26 @@ export async function getProductFacets() {
   const brands = brandRows
     .map((r) => r.brand)
     .filter((b): b is string => Boolean(b && String(b).trim()));
-  return { priceMin, priceMax, brands };
+
+  const attributeFacets: Record<string, string[]> = {};
+  for (const row of attrRows) {
+    const attrs = normalizeProductAttributes(row.attributes);
+    if (!attrs) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(attrs)) {
+      const str = String(value);
+      const values = (attributeFacets[key] ??= []);
+      if (!values.includes(str)) {
+        values.push(str);
+      }
+    }
+  }
+  for (const values of Object.values(attributeFacets)) {
+    values.sort();
+  }
+
+  return { priceMin, priceMax, brands, attributeFacets };
 }
 
 export async function listProducts(params: ProductListParams) {
@@ -130,11 +195,11 @@ export async function listProducts(params: ProductListParams) {
   if (params.search) {
     const q = params.search;
     where.OR = [
-      { name: { contains: q } },
-      { nameBn: { contains: q } },
-      { shortDesc: { contains: q } },
-      { description: { contains: q } },
-      { sku: { contains: q } },
+      { name: { contains: q, mode: "insensitive" } },
+      { nameBn: { contains: q, mode: "insensitive" } },
+      { shortDesc: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+      { sku: { contains: q, mode: "insensitive" } },
     ];
   }
   if (params.categoryPublicId) {
@@ -160,6 +225,16 @@ export async function listProducts(params: ProductListParams) {
       where.price.lte = params.maxPrice;
     }
   }
+  if (params.attributes) {
+    const clauses: Prisma.ProductWhereInput[] = Object.entries(params.attributes)
+      .filter(([key, value]) => key && value)
+      .map(([key, value]) => ({
+        attributes: { path: [key], equals: value },
+      }));
+    if (clauses.length > 0) {
+      where.AND = clauses;
+    }
+  }
 
   const [items, total] = await Promise.all([
     prisma.product.findMany({
@@ -169,6 +244,7 @@ export async function listProducts(params: ProductListParams) {
       orderBy: { createdAt: "desc" },
       include: {
         category: { select: { publicId: true, name: true, slug: true } },
+        variants: { select: { price: true, comparePrice: true, stock: true } },
       },
     }),
     prisma.product.count({ where }),
@@ -232,6 +308,7 @@ export async function listHotProducts(limit: number) {
     },
     include: {
       category: { select: { publicId: true, name: true, slug: true } },
+      variants: { select: { price: true, comparePrice: true, stock: true } },
     },
   });
 
@@ -263,12 +340,13 @@ export async function getProductByPublicId(publicId: string) {
           parent: { select: { name: true, slug: true, publicId: true } },
         },
       },
+      variants: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!p) {
     throw new AppError(404, "Product not found", "NOT_FOUND");
   }
-  return mapProductDetail(p);
+  return mapProductDetail(p, p.variants);
 }
 
 export async function createProduct(
@@ -544,9 +622,9 @@ export async function listProductsAdmin(params: ProductAdminListParams) {
   if (params.search?.trim()) {
     const q = params.search.trim();
     where.OR = [
-      { name: { contains: q } },
-      { sku: { contains: q } },
-      { description: { contains: q } },
+      { name: { contains: q, mode: "insensitive" } },
+      { sku: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
     ];
   }
   if (params.categoryPublicId) {
@@ -570,18 +648,21 @@ export async function listProductsAdmin(params: ProductAdminListParams) {
       orderBy: { updatedAt: "desc" },
       include: {
         category: { select: { publicId: true, name: true, slug: true } },
+        variants: { select: { price: true, comparePrice: true, stock: true } },
       },
     }),
     prisma.product.count({ where }),
   ]);
 
   return {
-    items: items.map((p) => ({
-      ...mapProductSummary(p),
-      status: p.status,
-      lowStock:
-        p.stock > 0 && p.stock <= env.LOW_STOCK_THRESHOLD,
-    })),
+    items: items.map((p) => {
+      const summary = mapProductSummary(p);
+      return {
+        ...summary,
+        status: p.status,
+        lowStock: summary.stock > 0 && summary.stock <= env.LOW_STOCK_THRESHOLD,
+      };
+    }),
     total,
     page: params.page,
     limit: params.limit,
@@ -630,23 +711,29 @@ function mapProductSummary(p: {
   badgeNew: boolean;
   badgeBestseller: boolean;
   category: { publicId: string; name: string; slug: string };
+  variants?: VariantForSummary[];
 }) {
+  const variantSummary = p.variants?.length ? summarizeVariants(p.variants) : null;
+  const price = variantSummary ? variantSummary.price : decimalToString(p.price);
+  const stock = variantSummary ? variantSummary.stock : p.stock;
+  const inStock = variantSummary ? variantSummary.inStock : p.stock > 0;
   return {
     publicId: p.publicId,
     sku: p.sku,
     name: p.name,
     brand: p.brand,
     shortDescription: p.shortDesc,
-    price: decimalToString(p.price),
-    stock: p.stock,
+    price,
+    stock,
     readyToShip: p.readyToShip,
-    inStock: p.stock > 0,
+    inStock,
+    hasVariants: Boolean(variantSummary),
     mainImageUrl: p.mainImageUrl,
     featured: p.featured,
     badges: {
       new: p.badgeNew,
       bestseller: p.badgeBestseller,
-      limitedStock: p.stock > 0 && p.stock <= env.LOW_STOCK_THRESHOLD,
+      limitedStock: stock > 0 && stock <= env.LOW_STOCK_THRESHOLD,
     },
     category: p.category,
   };
@@ -667,7 +754,17 @@ type ProductDetailRow = Product & {
   };
 };
 
-function mapProductDetail(p: ProductDetailRow) {
+type ProductVariantRow = {
+  publicId: string;
+  options: Prisma.JsonValue;
+  price: Prisma.Decimal;
+  comparePrice: Prisma.Decimal | null;
+  stock: number;
+  mainImageUrl: string | null;
+};
+
+function mapProductDetail(p: ProductDetailRow, variants: ProductVariantRow[] = []) {
+  const variantSummary = summarizeVariants(variants);
   return {
     publicId: p.publicId,
     sku: p.sku,
@@ -679,11 +776,15 @@ function mapProductDetail(p: ProductDetailRow) {
     shortDesc: p.shortDesc,
     specs: p.specs,
     attributes: normalizeProductAttributes(p.attributes),
-    price: decimalToString(p.price),
-    comparePrice: p.comparePrice ? decimalToString(p.comparePrice) : null,
-    stock: p.stock,
+    price: variantSummary ? variantSummary.price : decimalToString(p.price),
+    comparePrice: variantSummary
+      ? variantSummary.comparePrice
+      : p.comparePrice
+        ? decimalToString(p.comparePrice)
+        : null,
+    stock: variantSummary ? variantSummary.stock : p.stock,
     readyToShip: p.readyToShip,
-    inStock: p.stock > 0,
+    inStock: variantSummary ? variantSummary.inStock : p.stock > 0,
     mainImageUrl: p.mainImageUrl,
     mainImagePublicId: p.mainImagePublicId,
     galleryUrls: parseGalleryUrls(p.galleryUrls),
@@ -691,7 +792,9 @@ function mapProductDetail(p: ProductDetailRow) {
     badges: {
       new: p.badgeNew,
       bestseller: p.badgeBestseller,
-      limitedStock: p.stock > 0 && p.stock <= env.LOW_STOCK_THRESHOLD,
+      limitedStock:
+        (variantSummary ? variantSummary.stock : p.stock) > 0 &&
+        (variantSummary ? variantSummary.stock : p.stock) <= env.LOW_STOCK_THRESHOLD,
     },
     category: {
       publicId: p.category.publicId,
@@ -703,5 +806,14 @@ function mapProductDetail(p: ProductDetailRow) {
         p.category.attributeSchema
       ),
     },
+    hasVariants: variants.length > 0,
+    variants: variants.map((v) => ({
+      publicId: v.publicId,
+      options: v.options,
+      price: decimalToString(v.price),
+      comparePrice: v.comparePrice ? decimalToString(v.comparePrice) : null,
+      stock: v.stock,
+      mainImageUrl: v.mainImageUrl,
+    })),
   };
 }

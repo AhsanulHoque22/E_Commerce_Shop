@@ -10,8 +10,12 @@ services:
       MYSQL_DATABASE: shop
       MYSQL_USER: shop
       MYSQL_PASSWORD: shop
+    # Do not publish on 3306: host port 3306 is already taken by a local
+    # MySQL daemon. The API talks to this DB via the Docker network using
+    # `db:3306`; 3307 is exposed only so host-side tools (prisma CLI,
+    # `npm run dev`/`npm test` against a real DB) can reach it directly.
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - shop_mysql_data:/var/lib/mysql
     command:

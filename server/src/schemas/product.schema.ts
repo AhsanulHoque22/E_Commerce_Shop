@@ -19,6 +19,8 @@ export const listProductsQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v === "true" ? true : undefined)),
+  /** Category attribute filters, e.g. ?attr[ram]=6GB&attr[storage]=128GB */
+  attr: z.record(z.string(), z.string()).optional(),
 });
 
 export const createProductSchema = z.object({

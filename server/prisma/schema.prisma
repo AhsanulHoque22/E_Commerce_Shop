@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -57,6 +57,9 @@ model User {
   complaints           Complaint[]
   favorites            Favorite[]
   productReviews       ProductReview[]
+  addresses            Address[]
+  couponRedemptions    CouponRedemption[]
+  returnRequests       ReturnRequest[]
 
   @@map("users")
 }
@@ -147,6 +150,7 @@ model Product {
   orderItems     OrderItem[]
   favorites      Favorite[]
   productReviews ProductReview[]
+  variants       ProductVariant[]
 
   @@index([categoryId])
   @@index([featured])
@@ -169,18 +173,144 @@ model ShopBrand {
   @@map("shop_brands")
 }
 
+/// Optional variant layer: only products that need color/storage/RAM-style
+/// combos get rows here. A product with zero variants keeps using its own
+/// price/stock/sku unchanged. A product with variants is sold by variant —
+/// each variant has its own price/stock/sku; the parent Product's own
+/// price/stock become display fallbacks only (see product.service.ts).
+model ProductVariant {
+  id                String   @id @default(uuid())
+  publicId          String   @unique @map("public_id")
+  productId         String   @map("product_id")
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku               String   @unique
+  /// e.g. { "color": "Midnight Black", "storage": "256GB" }
+  options           Json
+  price             Decimal  @db.Decimal(12, 2)
+  comparePrice      Decimal? @map("compare_price") @db.Decimal(12, 2)
+  stock             Int      @default(0)
+  isDefault         Boolean  @default(false) @map("is_default")
+  mainImageUrl      String?  @map("main_image_url") @db.Text
+  mainImagePublicId String?  @map("main_image_public_id") @db.VarChar(512)
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
 model CartItem {
+  id               String          @id @default(uuid())
+  userId           String          @map("user_id")
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        String          @map("product_id")
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Null for products with no variants (uses Product's own price/stock).
+  productVariantId String?         @map("product_variant_id")
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  quantity         Int             @default(1)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  // NOTE: MySQL unique indexes treat NULL as distinct, so this constraint
+  // only dedupes rows where productVariantId is set (variant products).
+  // For non-variant products (productVariantId null) cart.service.ts must
+  // dedupe by (userId, productId, productVariantId IS NULL) itself before
+  // inserting — do not rely on this index alone for that case.
+  @@unique([userId, productId, productVariantId])
+  @@index([userId])
+  @@index([productVariantId])
+  @@map("cart_items")
+}
+
+/// Multiple saved addresses per customer (checkout address book), distinct
+/// from the write-once permanent/present/delivery addresses captured at
+/// registration.
+model Address {
+  id          String   @id @default(uuid())
+  publicId    String   @unique @map("public_id")
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String   @default("Home") @db.VarChar(60)
+  fullName    String   @map("full_name") @db.VarChar(160)
+  phone       String   @db.VarChar(32)
+  line1       String   @map("line1") @db.VarChar(255)
+  line2       String?  @map("line2") @db.VarChar(255)
+  city        String   @db.VarChar(120)
+  area        String?  @db.VarChar(120)
+  postalCode  String?  @map("postal_code") @db.VarChar(20)
+  lat         Float?
+  lng         Float?
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Coupon {
+  id                String    @id @default(uuid())
+  publicId          String    @unique @map("public_id")
+  code              String    @unique @db.VarChar(40)
+  description       String?   @db.VarChar(255)
+  discountType      String    @map("discount_type") // "percent" | "fixed"
+  discountValue     Decimal   @map("discount_value") @db.Decimal(12, 2)
+  minSubtotal       Decimal?  @map("min_subtotal") @db.Decimal(12, 2)
+  maxDiscount       Decimal?  @map("max_discount") @db.Decimal(12, 2)
+  usageLimit        Int?      @map("usage_limit")
+  usageCount        Int       @default(0) @map("usage_count")
+  perUserLimit      Int?      @map("per_user_limit")
+  isActive          Boolean   @default(true) @map("is_active")
+  startsAt          DateTime? @map("starts_at")
+  endsAt            DateTime? @map("ends_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  redemptions CouponRedemption[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
   id        String   @id @default(uuid())
+  couponId  String   @map("coupon_id")
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String   @map("product_id")
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity  Int      @default(1)
+  orderId   String   @unique @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount    Decimal  @db.Decimal(12, 2)
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([userId, productId])
-  @@map("cart_items")
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+model ReturnRequest {
+  id          String    @id @default(uuid())
+  publicId    String    @unique @map("public_id")
+  orderId     String    @map("order_id")
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason      String    @db.Text
+  type        String    @default("return") // "return" | "exchange" | "warranty"
+  status      String    @default("requested") // requested|approved|rejected|completed
+  adminNote   String?   @map("admin_note") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  resolvedAt  DateTime? @map("resolved_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@map("return_requests")
 }
 
 model Favorite {
@@ -248,7 +378,9 @@ model Order {
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  items OrderItem[]
+  items          OrderItem[]
+  couponRedemption CouponRedemption?
+  returnRequests ReturnRequest[]
 
   @@index([userId])
   @@index([status])
@@ -256,15 +388,21 @@ model Order {
 }
 
 model OrderItem {
-  id           String  @id @default(uuid())
-  orderId      String  @map("order_id")
-  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    String  @map("product_id")
-  product      Product @relation(fields: [productId], references: [id])
-  quantity     Int
-  unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2)
-  nameSnapshot String  @map("name_snapshot")
+  id               String          @id @default(uuid())
+  orderId          String          @map("order_id")
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String          @map("product_id")
+  product          Product         @relation(fields: [productId], references: [id])
+  /// Null for products with no variants.
+  productVariantId String?         @map("product_variant_id")
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
+  quantity         Int
+  unitPrice        Decimal         @map("unit_price") @db.Decimal(12, 2)
+  nameSnapshot     String          @map("name_snapshot")
+  /// Snapshot of the variant options at purchase time, e.g. { color, storage }.
+  variantSnapshot  Json?           @map("variant_snapshot")
 
+  @@index([productVariantId])
   @@map("order_items")
 }
 

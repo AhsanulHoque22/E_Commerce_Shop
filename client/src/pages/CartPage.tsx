@@ -5,6 +5,8 @@ import { useSession } from "@/hooks/useSession";
 
 type CartLine = {
   productPublicId: string;
+  productVariantPublicId?: string | null;
+  variantOptions?: Record<string, string> | null;
   name: string;
   quantity: number;
   unitPrice: string;
@@ -43,11 +45,36 @@ export function CartPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (payload: { productPublicId: string; quantity: number }) =>
+    mutationFn: (payload: {
+      productPublicId: string;
+      quantity: number;
+      productVariantPublicId?: string;
+    }) =>
       apiFetch("/api/cart/items", {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["cart"] });
+    },
+  });
+
+  const removeMut = useMutation({
+    mutationFn: ({
+      productPublicId,
+      productVariantPublicId,
+    }: {
+      productPublicId: string;
+      productVariantPublicId?: string;
+    }) =>
+      apiFetch(
+        `/api/cart/items/${productPublicId}${
+          productVariantPublicId
+            ? `?productVariantPublicId=${encodeURIComponent(productVariantPublicId)}`
+            : ""
+        }`,
+        { method: "DELETE" }
+      ),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["cart"] });
     },
@@ -112,7 +139,7 @@ export function CartPage() {
         >
           Saved
           {favorites.data?.items.length ? (
-            <span className="ml-1.5 rounded-full bg-rose-500/15 px-2 py-0.5 text-xs tabular-nums text-rose-700">
+            <span className="ml-1.5 rounded-full bg-rose-400/15 px-2 py-0.5 text-xs tabular-nums text-rose-300">
               {favorites.data.items.length}
             </span>
           ) : null}
@@ -149,7 +176,7 @@ export function CartPage() {
                   ) : null}
                   <p className="mt-1 text-sm text-muted">BDT {line.price}</p>
                   {!line.inStock && (
-                    <p className="mt-1 text-xs text-amber-700">Currently unavailable</p>
+                    <p className="mt-1 text-xs text-amber-400">Currently unavailable</p>
                   )}
                 </div>
               </Link>
@@ -158,7 +185,7 @@ export function CartPage() {
                   type="button"
                   disabled={!line.inStock || addCartFromFav.isPending}
                   onClick={() => addCartFromFav.mutate(line.productPublicId)}
-                  className="min-h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50"
+                  className="min-h-10 rounded-xl bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-600 disabled:opacity-50"
                 >
                   Add to cart
                 </button>
@@ -180,51 +207,72 @@ export function CartPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
           {cart.isLoading && <div className="h-40 animate-pulse rounded-2xl bg-border" />}
-          {cart.data?.items.map((line) => (
-            <div
-              key={line.productPublicId}
-              className="flex gap-4 rounded-2xl border border-border bg-surface p-4 shadow-card"
-            >
-              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-bg">
-                {line.mainImageUrl && (
-                  <img src={line.mainImageUrl} alt="" className="h-full w-full object-cover" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{line.name}</p>
-                <p className="text-sm text-muted">BDT {line.unitPrice} each</p>
-                <div className="mt-3 flex items-center gap-3">
-                  <label className="text-sm text-muted" htmlFor={`q-${line.productPublicId}`}>
-                    Qty
-                  </label>
-                  <input
-                    id={`q-${line.productPublicId}`}
-                    type="number"
-                    min={1}
-                    max={99}
-                    className="w-20 rounded-lg border border-border px-2 py-2"
-                    defaultValue={line.quantity}
-                    onBlur={(e) => {
-                      const v = Number(e.target.value);
-                      if (!Number.isFinite(v)) {
-                        return;
-                      }
-                      updateMut.mutate({
-                        productPublicId: line.productPublicId,
-                        quantity: v,
-                      });
-                    }}
-                  />
+          {cart.data?.items.map((line) => {
+            const lineKey = `${line.productPublicId}:${line.productVariantPublicId ?? ""}`;
+            return (
+              <div
+                key={lineKey}
+                className="flex gap-4 rounded-2xl border border-border bg-surface p-4 shadow-card"
+              >
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-bg">
+                  {line.mainImageUrl && (
+                    <img src={line.mainImageUrl} alt="" className="h-full w-full object-cover" />
+                  )}
                 </div>
-                {line.inactive && (
-                  <p className="mt-2 text-xs text-amber-700">Product unavailable</p>
-                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{line.name}</p>
+                  {line.variantOptions ? (
+                    <p className="text-xs text-subtle">
+                      {Object.values(line.variantOptions).join(" · ")}
+                    </p>
+                  ) : null}
+                  <p className="text-sm text-muted">BDT {line.unitPrice} each</p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <label className="text-sm text-muted" htmlFor={`q-${lineKey}`}>
+                      Qty
+                    </label>
+                    <input
+                      id={`q-${lineKey}`}
+                      type="number"
+                      min={1}
+                      max={99}
+                      className="w-20 rounded-lg border border-border bg-surface px-2 py-2"
+                      defaultValue={line.quantity}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isFinite(v)) {
+                          return;
+                        }
+                        updateMut.mutate({
+                          productPublicId: line.productPublicId,
+                          quantity: v,
+                          productVariantPublicId: line.productVariantPublicId ?? undefined,
+                        });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeMut.mutate({
+                          productPublicId: line.productPublicId,
+                          productVariantPublicId: line.productVariantPublicId ?? undefined,
+                        })
+                      }
+                      className="text-sm font-medium text-muted hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {line.inactive && (
+                    <p className="mt-2 text-xs text-amber-400">Product unavailable</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">BDT {line.lineTotal}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold">BDT {line.lineTotal}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {cart.data && cart.data.items.length === 0 && (
             <p className="text-muted">Your cart is empty.</p>
           )}
@@ -234,12 +282,13 @@ export function CartPage() {
           <p className="mt-1 text-2xl font-semibold">BDT {cart.data?.subtotal ?? "0.00"}</p>
           <Link
             to="/checkout"
-            className="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white"
+            className="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-600"
           >
             Checkout
           </Link>
           <p className="mt-4 text-xs text-subtle">
-            BD rules: 100% when ready to ship; else up to 10% advance (mock checkout).
+            You'll pay 100% now for ready-to-ship items, or a 10% advance for
+            preorders — the rest on delivery or once approved.
           </p>
         </div>
       </div>

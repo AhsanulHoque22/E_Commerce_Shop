@@ -117,7 +117,13 @@ export function AdminOrdersPage() {
     setCourier(detail.data.courierName ?? "");
     setTrackingUrl(detail.data.shipmentTrackingUrl ?? "");
     setPayRef(detail.data.paymentReference ?? "");
-    setPayStat(detail.data.paymentStatus);
+    // Deliberately left blank, NOT pre-filled with the current value: each
+    // status transition has its own correct default paymentStatus on the
+    // server (e.g. APPROVED -> "awaiting_payment"). Submitting the old value
+    // back as an explicit override silently clobbers that default on every
+    // transition. Leave blank so it only overrides when an admin actually
+    // types a custom label.
+    setPayStat("");
   }, [detail.data]);
 
   return (
@@ -179,7 +185,7 @@ export function AdminOrdersPage() {
                   setTracking(o.shipmentTrackingId ?? "");
                   setCourier(o.courierName ?? "");
                   setPayRef(o.paymentReference ?? "");
-                  setPayStat(o.paymentStatus);
+                  setPayStat("");
                 }}
               >
                 <td className="px-4 py-3 font-mono text-xs">{o.publicId}</td>
@@ -324,11 +330,12 @@ export function AdminOrdersPage() {
                 />
               </label>
               <label className="mt-3 block text-sm">
-                Payment status label (optional)
+                Payment status label override (optional)
                 <input
                   className="mt-1 w-full rounded-xl border border-border px-3 py-2 text-xs"
                   value={payStat}
                   onChange={(e) => setPayStat(e.target.value)}
+                  placeholder={`Currently: ${detail.data?.paymentStatus ?? "—"} (leave blank to use the default for this transition)`}
                 />
               </label>
               {statusMut.isError && (
@@ -341,7 +348,7 @@ export function AdminOrdersPage() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   disabled={!nextStatus || statusMut.isPending}
                   onClick={() => {
                     if (!nextStatus) return;

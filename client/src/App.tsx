@@ -17,6 +17,7 @@ import { AdminOrdersPage } from "@/admin/pages/OrdersAdminPage";
 import { AdminCategoriesPage } from "@/admin/pages/CategoriesAdminPage";
 import { AdminAdsPage } from "@/admin/pages/AdsAdminPage";
 import { AdminBrandsPage } from "@/admin/pages/BrandsAdminPage";
+import { AdminCouponsPage } from "@/admin/pages/CouponsAdminPage";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="categories" element={<AdminCategoriesPage />} />
             <Route path="ads" element={<AdminAdsPage />} />
             <Route path="brands" element={<AdminBrandsPage />} />
+            <Route path="coupons" element={<AdminCouponsPage />} />
           </Route>
         </Route>
       </Routes>

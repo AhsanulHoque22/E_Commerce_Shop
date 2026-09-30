@@ -113,7 +113,7 @@ export function OrderTrackingTimeline(props: {
                 <p
                   className={
                     "mt-2 max-w-[7.5rem] text-xs font-medium leading-tight " +
-                    (v === "current" ? "text-ink" : v === "done" ? "text-emerald-800" : "text-muted")
+                    (v === "current" ? "text-ink" : v === "done" ? "text-emerald-400" : "text-muted")
                   }
                 >
                   {LABELS[s.status] ?? s.status.replace(/_/g, " ")}
@@ -153,7 +153,7 @@ export function OrderTrackingTimeline(props: {
                 <p
                   className={
                     "text-sm font-medium " +
-                    (v === "current" ? "text-ink" : v === "done" ? "text-emerald-800" : "text-muted")
+                    (v === "current" ? "text-ink" : v === "done" ? "text-emerald-400" : "text-muted")
                   }
                 >
                   {LABELS[s.status] ?? s.status.replace(/_/g, " ")}

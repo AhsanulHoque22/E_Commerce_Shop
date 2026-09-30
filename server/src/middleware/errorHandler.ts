@@ -3,6 +3,14 @@ import { Prisma } from "@prisma/client";
 import { AppError } from "../utils/AppError.js";
 import { sendError } from "../utils/response.js";
 
+// Prisma known-request-error codes mapped to the HTTP status a client should see.
+// https://www.prisma.io/docs/orm/reference/error-reference
+const PRISMA_STATUS_BY_CODE: Record<string, number> = {
+  P2002: 409, // unique constraint violation
+  P2003: 409, // foreign key constraint violation
+  P2025: 404, // record not found
+};
+
 export function errorHandler(
   err: unknown,
   _req: Request,
@@ -18,8 +26,8 @@ export function errorHandler(
     console.error(err);
     sendError(
       res,
-      400,
-      `Database error (${err.code}): ${err.message}`,
+      PRISMA_STATUS_BY_CODE[err.code] ?? 400,
+      "Request could not be completed",
       err.code
     );
     return;
@@ -27,15 +35,10 @@ export function errorHandler(
 
   if (err instanceof Prisma.PrismaClientValidationError) {
     console.error(err);
-    sendError(res, 400, err.message, "PRISMA_VALIDATION");
+    sendError(res, 400, "Invalid request", "PRISMA_VALIDATION");
     return;
   }
 
   console.error(err);
-
-  const msg =
-    err instanceof Error && err.message.trim()
-      ? err.message
-      : "Internal server error";
-  sendError(res, 500, msg, "INTERNAL");
+  sendError(res, 500, "Internal server error", "INTERNAL");
 }

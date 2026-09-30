@@ -50,7 +50,7 @@ export function ProductCard({ p }: { p: CardProduct }) {
             </span>
           )}
           {p.badges.limitedStock && (
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-300">
               Limited stock
             </span>
           )}
@@ -65,7 +65,7 @@ export function ProductCard({ p }: { p: CardProduct }) {
         <p className="mt-1 text-xs text-muted">
           {p.inStock ? `In stock (${p.stock})` : "Out of stock"}
         </p>
-        <span className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white">
+        <span className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition group-hover:bg-accent-600">
           View details
         </span>
       </div>

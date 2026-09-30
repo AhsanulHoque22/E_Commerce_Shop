@@ -10,5 +10,6 @@ r.post("/", optionalAuth, asyncHandler(ctrl.create));
 const admin = Router();
 admin.use(requireAuth, requireAdmin);
 admin.get("/", asyncHandler(ctrl.adminList));
+admin.patch("/:publicId", asyncHandler(ctrl.adminUpdate));
 
 export { r as complaintRoutes, admin as complaintAdminRoutes };

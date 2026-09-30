@@ -14,8 +14,9 @@ export const checkoutSchema = z.object({
   shipping: shippingSchema,
   contactEmail: z.string().email(),
   contactPhone: z.string().max(32).optional(),
-  paymentMethod: z.enum(["mock_card", "mock_wallet"]),
+  paymentMethod: z.enum(["mock_card", "mock_wallet", "sslcommerz", "cod"]),
   notes: z.string().max(2000).optional(),
+  couponCode: z.string().min(1).max(40).optional(),
 });
 
 /** @deprecated Use admin routes + adminOrderStatusBodySchema */

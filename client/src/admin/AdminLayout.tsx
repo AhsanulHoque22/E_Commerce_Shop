@@ -57,6 +57,9 @@ export function AdminLayout() {
         <NavLink to="/admin/brands" className={navCls}>
           Brands
         </NavLink>
+        <NavLink to="/admin/coupons" className={navCls}>
+          Coupons
+        </NavLink>
         <button
           type="button"
           onClick={() => void handleLogout()}
@@ -122,6 +125,14 @@ export function AdminLayout() {
             }
           >
             Brands
+          </NavLink>
+          <NavLink
+            to="/admin/coupons"
+            className={({ isActive }) =>
+              linkClass + (isActive ? " " + activeClass : "")
+            }
+          >
+            Coupons
           </NavLink>
           <button
             type="button"

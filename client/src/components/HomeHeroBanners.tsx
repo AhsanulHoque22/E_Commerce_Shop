@@ -164,8 +164,8 @@ export function HomeHeroBanners({ ads }: { ads: HomeHeroAd[] }) {
         }
       }}
     >
-      <div className="h-1 w-full bg-amber-400" aria-hidden />
-      <div className="relative h-[min(38vw,400px)] min-h-[150px] w-full overflow-hidden bg-neutral-900 sm:min-h-[180px]">
+      <div className="h-1 w-full bg-accent" aria-hidden />
+      <div className="relative h-[min(38vw,400px)] min-h-[150px] w-full overflow-hidden bg-ink-950 sm:min-h-[180px]">
         <div
           className="flex h-full transition-transform duration-500 ease-out motion-reduce:transition-none"
           style={{

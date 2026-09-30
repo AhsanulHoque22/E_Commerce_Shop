@@ -230,7 +230,7 @@ export function AdminBrandsPage() {
               <button
                 type="button"
                 disabled={saveMut.isPending}
-                className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 onClick={() => void saveMut.mutateAsync()}
               >
                 {saveMut.isPending ? "Saving…" : "Save"}

@@ -68,6 +68,9 @@ export function LoginModal() {
         body: JSON.stringify({
           productPublicId: pendingCart.productPublicId,
           quantity: pendingCart.quantity,
+          ...(pendingCart.productVariantPublicId
+            ? { productVariantPublicId: pendingCart.productVariantPublicId }
+            : {}),
         }),
       });
       await qc.invalidateQueries({ queryKey: ["cart"] });
@@ -186,7 +189,7 @@ export function LoginModal() {
         },
       });
       window.google.accounts.id.renderButton(host, {
-        theme: "outline",
+        theme: "filled_black",
         size: "large",
         width: "100%",
         text: "continue_with",
@@ -257,7 +260,7 @@ export function LoginModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
       <div
         role="dialog"
         aria-modal="true"
@@ -331,7 +334,7 @@ export function LoginModal() {
                   </label>
                   <button
                     type="button"
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent-400 hover:underline"
                     onClick={() => {
                       setMode("forgot");
                       setForgotMsg(null);
@@ -348,7 +351,7 @@ export function LoginModal() {
                   onChange={setPassword}
                 />
               </div>
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {error ? <p className="text-sm text-red-400">{error}</p> : null}
               <button
                 type="submit"
                 disabled={loginMut.isPending}
@@ -403,7 +406,7 @@ export function LoginModal() {
               />
             </div>
             {forgotMsg ? (
-              <p className="text-sm text-green-700 dark:text-green-400">{forgotMsg}</p>
+              <p className="text-sm text-emerald-400">{forgotMsg}</p>
             ) : null}
             <button
               type="submit"
@@ -414,7 +417,7 @@ export function LoginModal() {
             </button>
             <button
               type="button"
-              className="w-full text-sm text-accent hover:underline"
+              className="w-full text-sm text-accent-400 hover:underline"
               onClick={() => setMode("login")}
             >
               Back to sign in
@@ -533,7 +536,7 @@ export function LoginModal() {
                 </p>
               ) : null}
               {otpDevHint ? (
-                <p className="mt-1 text-xs text-amber-700">{otpDevHint}</p>
+                <p className="mt-1 text-xs text-amber-400">{otpDevHint}</p>
               ) : null}
             </div>
             <div>
@@ -654,7 +657,7 @@ export function LoginModal() {
                 I have read the privacy policy and agree to the collection of my personal data.
               </span>
             </label>
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {error ? <p className="text-sm text-red-400">{error}</p> : null}
             <button
               type="submit"
               disabled={regMut.isPending}
@@ -668,7 +671,7 @@ export function LoginModal() {
         {mode !== "forgot" ? (
           <button
             type="button"
-            className="mt-4 w-full text-center text-sm text-accent hover:underline"
+            className="mt-4 w-full text-center text-sm text-accent-400 hover:underline"
             onClick={() => {
               setMode(mode === "login" ? "register" : "login");
               setError(null);

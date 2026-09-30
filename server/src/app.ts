@@ -19,6 +19,13 @@ import { complaintRoutes, complaintAdminRoutes } from "./routes/complaint.routes
 import { adRoutes, adAdminRoutes } from "./routes/advertisement.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import favoriteRoutes from "./routes/favorite.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
+import addressRoutes from "./routes/address.routes.js";
+import { couponRoutes, couponAdminRoutes } from "./routes/coupon.routes.js";
+import {
+  returnRequestRoutes,
+  returnRequestAdminRoutes,
+} from "./routes/returnRequest.routes.js";
 import { AppError } from "./utils/AppError.js";
 
 initCloudinary();
@@ -35,6 +42,8 @@ const logger = pino({
 });
 
 const app = express();
+// ponytail: 2 hops = Vercel rewrite + Render LB; XFF is spoofable by direct hits to Render, fine for rate limiting
+app.set("trust proxy", 2);
 
 app.use(
   helmet({
@@ -103,6 +112,12 @@ app.use("/api/complaints", complaintRoutes);
 app.use("/api/admin/complaints", complaintAdminRoutes);
 app.use("/api/ads", adRoutes);
 app.use("/api/admin/ads", adAdminRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/addresses", addressRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/admin/coupons", couponAdminRoutes);
+app.use("/api/returns", returnRequestRoutes);
+app.use("/api/admin/returns", returnRequestAdminRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use((req, _res, next) => {

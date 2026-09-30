@@ -80,6 +80,23 @@ async function main() {
     update: {},
   });
 
+  const smartphoneAttributeSchema = [
+    {
+      key: "ram",
+      name: "RAM",
+      type: "select",
+      required: false,
+      options: ["4GB", "6GB", "8GB", "12GB"],
+    },
+    {
+      key: "screen_size",
+      name: "Screen size",
+      type: "select",
+      required: false,
+      options: ['6.1"', '6.5"', '6.7"', '6.9"'],
+    },
+  ];
+
   const catSmartphones = await prisma.category.upsert({
     where: { slug: "smartphones" },
     create: {
@@ -88,8 +105,9 @@ async function main() {
       name: "Smartphones",
       parentId: catPhones.id,
       sortOrder: 1,
+      attributeSchema: smartphoneAttributeSchema,
     },
-    update: { parentId: catPhones.id },
+    update: { parentId: catPhones.id, attributeSchema: smartphoneAttributeSchema },
   });
 
   const catFeature = await prisma.category.upsert({
@@ -167,6 +185,7 @@ async function main() {
     mainImageUrl: string;
     galleryUrls: string[];
     specs?: Prisma.InputJsonValue;
+    attributes?: Prisma.InputJsonValue;
   };
 
   const products: SeedP[] = [
@@ -192,6 +211,7 @@ async function main() {
         Storage: "256GB",
         Camera: "50MP main + 12MP ultra-wide",
       },
+      attributes: { ram: "8GB", screen_size: '6.7"' },
     },
     {
       sku: "PHONE-NEXUS-9",
@@ -211,6 +231,7 @@ async function main() {
         OS: "Android 15",
         Charging: "80W wired / 50W wireless",
       },
+      attributes: { ram: "12GB", screen_size: '6.5"' },
     },
     {
       sku: "PHONE-PULSE-12",
@@ -227,6 +248,7 @@ async function main() {
       badgeBestseller: true,
       mainImageUrl: U.phone3,
       galleryUrls: [U.phone3, U.phone5, U.phone2],
+      attributes: { ram: "6GB", screen_size: '6.5"' },
     },
     {
       sku: "PHONE-VOLT-S",
@@ -240,6 +262,7 @@ async function main() {
       categoryId: catSmartphones.id,
       mainImageUrl: U.phone4,
       galleryUrls: [U.phone4, U.phone3],
+      attributes: { ram: "8GB", screen_size: '6.1"' },
     },
     {
       sku: "PHONE-ORBIT-MAX",
@@ -254,6 +277,7 @@ async function main() {
       featured: true,
       mainImageUrl: U.phone5,
       galleryUrls: [U.phone5, U.phone1, U.tablet],
+      attributes: { ram: "12GB", screen_size: '6.9"' },
     },
     {
       sku: "PHONE-LITE-AIR",
@@ -507,6 +531,7 @@ async function main() {
         mainImageUrl: pr.mainImageUrl,
         galleryUrls: pr.galleryUrls as Prisma.InputJsonValue,
         ...(pr.specs !== undefined ? { specs: pr.specs } : {}),
+        ...(pr.attributes !== undefined ? { attributes: pr.attributes } : {}),
       },
       update: {
         name: pr.name,
@@ -523,6 +548,155 @@ async function main() {
         mainImageUrl: pr.mainImageUrl,
         galleryUrls: pr.galleryUrls as Prisma.InputJsonValue,
         ...(pr.specs !== undefined ? { specs: pr.specs } : {}),
+        ...(pr.attributes !== undefined ? { attributes: pr.attributes } : {}),
+      },
+    });
+  }
+
+  // Additive variant layer: color/storage/RAM combos for a few phones, so
+  // there's real ProductVariant data to test the storefront/cart/admin
+  // variant work against. Products with no rows here are unaffected.
+  type SeedVariant = {
+    productSku: string;
+    sku: string;
+    options: Record<string, string>;
+    price: number;
+    comparePrice?: number;
+    stock: number;
+    isDefault?: boolean;
+    sortOrder?: number;
+    mainImageUrl?: string;
+  };
+
+  const variantSeeds: SeedVariant[] = [
+    // Aurora X1 — color x storage
+    {
+      productSku: "PHONE-X1",
+      sku: "PHONE-X1-BLK-128",
+      options: { color: "Midnight Black", storage: "128GB" },
+      price: 84999,
+      comparePrice: 89999,
+      stock: 10,
+      isDefault: true,
+      sortOrder: 0,
+      mainImageUrl: U.phone1,
+    },
+    {
+      productSku: "PHONE-X1",
+      sku: "PHONE-X1-BLK-256",
+      options: { color: "Midnight Black", storage: "256GB" },
+      price: 89999,
+      comparePrice: 94999,
+      stock: 8,
+      sortOrder: 1,
+      mainImageUrl: U.phone1,
+    },
+    {
+      productSku: "PHONE-X1",
+      sku: "PHONE-X1-SLV-256",
+      options: { color: "Silver", storage: "256GB" },
+      price: 89999,
+      comparePrice: 94999,
+      stock: 6,
+      sortOrder: 2,
+      mainImageUrl: U.phone2,
+    },
+    {
+      productSku: "PHONE-X1",
+      sku: "PHONE-X1-SLV-512",
+      options: { color: "Silver", storage: "512GB" },
+      price: 99999,
+      comparePrice: 104999,
+      stock: 0,
+      sortOrder: 3,
+      mainImageUrl: U.phone2,
+    },
+    // Nexus 9 Pro — color x RAM
+    {
+      productSku: "PHONE-NEXUS-9",
+      sku: "PHONE-NEXUS-9-GRT-8",
+      options: { color: "Graphite", ram: "8GB" },
+      price: 75999,
+      stock: 5,
+      isDefault: true,
+      sortOrder: 0,
+      mainImageUrl: U.phone2,
+    },
+    {
+      productSku: "PHONE-NEXUS-9",
+      sku: "PHONE-NEXUS-9-GRT-12",
+      options: { color: "Graphite", ram: "12GB" },
+      price: 81999,
+      stock: 4,
+      sortOrder: 1,
+      mainImageUrl: U.phone2,
+    },
+    {
+      productSku: "PHONE-NEXUS-9",
+      sku: "PHONE-NEXUS-9-BLU-12",
+      options: { color: "Ocean Blue", ram: "12GB" },
+      price: 81999,
+      stock: 3,
+      sortOrder: 2,
+      mainImageUrl: U.phone4,
+    },
+    // Pulse 12 5G — storage only
+    {
+      productSku: "PHONE-PULSE-12",
+      sku: "PULSE-12-128",
+      options: { storage: "128GB" },
+      price: 42999,
+      comparePrice: 46999,
+      stock: 20,
+      isDefault: true,
+      sortOrder: 0,
+      mainImageUrl: U.phone3,
+    },
+    {
+      productSku: "PHONE-PULSE-12",
+      sku: "PULSE-12-256",
+      options: { storage: "256GB" },
+      price: 47999,
+      comparePrice: 51999,
+      stock: 15,
+      sortOrder: 1,
+      mainImageUrl: U.phone3,
+    },
+  ];
+
+  const productIdBySku = new Map<string, string>();
+  for (const sku of new Set(variantSeeds.map((v) => v.productSku))) {
+    const row = await prisma.product.findUnique({ where: { sku }, select: { id: true } });
+    if (row) {
+      productIdBySku.set(sku, row.id);
+    }
+  }
+
+  for (const v of variantSeeds) {
+    const productId = productIdBySku.get(v.productSku);
+    if (!productId) continue;
+    await prisma.productVariant.upsert({
+      where: { sku: v.sku },
+      create: {
+        publicId: pub("pvar"),
+        productId,
+        sku: v.sku,
+        options: v.options as Prisma.InputJsonValue,
+        price: v.price,
+        comparePrice: v.comparePrice,
+        stock: v.stock,
+        isDefault: v.isDefault ?? false,
+        mainImageUrl: v.mainImageUrl,
+        sortOrder: v.sortOrder ?? 0,
+      },
+      update: {
+        options: v.options as Prisma.InputJsonValue,
+        price: v.price,
+        comparePrice: v.comparePrice ?? null,
+        stock: v.stock,
+        isDefault: v.isDefault ?? false,
+        mainImageUrl: v.mainImageUrl,
+        sortOrder: v.sortOrder ?? 0,
       },
     });
   }
@@ -561,7 +735,9 @@ async function main() {
     "/",
     adminPass,
     "| Products:",
-    products.length
+    products.length,
+    "| Variants:",
+    variantSeeds.length
   );
 }
 

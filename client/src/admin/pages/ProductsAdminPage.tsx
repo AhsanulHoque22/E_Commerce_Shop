@@ -122,7 +122,7 @@ export function AdminProductsPage() {
         <button
           type="button"
           onClick={() => setModal("create")}
-          className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white"
+          className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white"
         >
           New product
         </button>
@@ -347,7 +347,7 @@ function StockModal(props: {
           <button
             type="button"
             disabled={props.loading}
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             onClick={props.onSubmit}
           >
             Apply
@@ -803,6 +803,12 @@ function ProductFormModal(props: {
               )}
             </FormSection>
 
+            {props.mode === "edit" && props.publicId ? (
+              <FormSection title="Variants" defaultOpen={false}>
+                <VariantsSection productPublicId={props.publicId} />
+              </FormSection>
+            ) : null}
+
             <FormSection title="Images" defaultOpen={false}>
               <label className="block">
                 Main image URL (Cloudinary)
@@ -829,13 +835,225 @@ function ProductFormModal(props: {
                 (props.mode === "edit" && detail.isLoading) ||
                 (Boolean(cat) && catSchema.isLoading)
               }
-              className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               onClick={() => void submit()}
             >
               Save
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+type Variant = {
+  publicId: string;
+  sku: string;
+  options: Record<string, string>;
+  price: string;
+  comparePrice: string | null;
+  stock: number;
+  isDefault: boolean;
+};
+
+/** Parses "color: Black, storage: 128GB" into { color: "Black", storage: "128GB" }. */
+function parseOptionsText(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const pair of text.split(",")) {
+    const [k, ...rest] = pair.split(":");
+    const key = k?.trim().toLowerCase().replace(/\s+/g, "_");
+    const value = rest.join(":").trim();
+    if (key && value) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function formatOptions(options: Record<string, string>): string {
+  return Object.entries(options)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(", ");
+}
+
+function VariantsSection({ productPublicId }: { productPublicId: string }) {
+  const qc = useQueryClient();
+  const queryKey = ["admin", "product", productPublicId, "variants"];
+  const list = useQuery({
+    queryKey,
+    queryFn: () =>
+      apiFetch<Variant[]>(`/api/admin/products/${productPublicId}/variants`),
+  });
+
+  const [sku, setSku] = useState("");
+  const [optionsText, setOptionsText] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("0");
+  const [isDefault, setIsDefault] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const invalidate = () => void qc.invalidateQueries({ queryKey });
+
+  const createMut = useMutation({
+    mutationFn: (body: {
+      sku: string;
+      options: Record<string, string>;
+      price: number;
+      stock: number;
+      isDefault: boolean;
+    }) =>
+      apiFetch(`/api/admin/products/${productPublicId}/variants`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      invalidate();
+      setSku("");
+      setOptionsText("");
+      setPrice("");
+      setStock("0");
+      setIsDefault(false);
+      setErr(null);
+    },
+    onError: (e) => setErr(e instanceof Error ? e.message : "Failed to add variant"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (variantPublicId: string) =>
+      apiFetch(`/api/admin/products/${productPublicId}/variants/${variantPublicId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: invalidate,
+  });
+
+  const inputClass = "mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm";
+
+  function submit() {
+    setErr(null);
+    const priceN = parseFloat(price);
+    const stockN = parseInt(stock, 10);
+    const options = parseOptionsText(optionsText);
+    if (!sku.trim() || Number.isNaN(priceN) || priceN <= 0) {
+      setErr("Check SKU and price");
+      return;
+    }
+    if (Object.keys(options).length === 0) {
+      setErr('Enter options like "color: Black, storage: 128GB"');
+      return;
+    }
+    createMut.mutate({
+      sku: sku.trim(),
+      options,
+      price: priceN,
+      stock: Number.isNaN(stockN) ? 0 : Math.max(0, stockN),
+      isDefault,
+    });
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-muted">
+        Only products that need color/storage-style combos need variants. A
+        product with no variants keeps using its own price/stock above,
+        unchanged.
+      </p>
+
+      {list.isLoading ? (
+        <p className="mt-3 text-muted">Loading variants…</p>
+      ) : list.data && list.data.length > 0 ? (
+        <div className="mt-3 overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[480px] text-left text-xs">
+            <thead className="border-b border-border bg-bg uppercase text-subtle">
+              <tr>
+                <th className="px-3 py-2">SKU</th>
+                <th className="px-3 py-2">Options</th>
+                <th className="px-3 py-2">Price</th>
+                <th className="px-3 py-2">Stock</th>
+                <th className="px-3 py-2">Default</th>
+                <th className="px-3 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.data.map((v) => (
+                <tr key={v.publicId} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2 font-mono">{v.sku}</td>
+                  <td className="px-3 py-2">{formatOptions(v.options)}</td>
+                  <td className="px-3 py-2">{v.price}</td>
+                  <td className="px-3 py-2">{v.stock}</td>
+                  <td className="px-3 py-2">{v.isDefault ? "Yes" : ""}</td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={() => {
+                        if (window.confirm(`Delete variant ${v.sku}?`)) {
+                          deleteMut.mutate(v.publicId);
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mt-3 text-muted">No variants yet — this product sells as a single SKU.</p>
+      )}
+
+      <div className="mt-4 rounded-xl border border-border bg-bg/50 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">
+          Add variant
+        </p>
+        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            SKU
+            <input className={inputClass} value={sku} onChange={(e) => setSku(e.target.value)} />
+          </label>
+          <label className="block sm:col-span-2">
+            Options
+            <input
+              className={inputClass}
+              value={optionsText}
+              onChange={(e) => setOptionsText(e.target.value)}
+              placeholder="color: Midnight Black, storage: 256GB"
+            />
+          </label>
+          <label className="block">
+            Price
+            <input
+              className={inputClass}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              inputMode="decimal"
+            />
+          </label>
+          <label className="block">
+            Stock
+            <input
+              className={inputClass}
+              value={stock}
+              onChange={(e) => setStock(e.target.value)}
+              inputMode="numeric"
+            />
+          </label>
+        </div>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+          Default variant (pre-selected on the product page)
+        </label>
+        {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+        <button
+          type="button"
+          disabled={createMut.isPending}
+          onClick={submit}
+          className="mt-3 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {createMut.isPending ? "Adding…" : "Add variant"}
+        </button>
       </div>
     </div>
   );

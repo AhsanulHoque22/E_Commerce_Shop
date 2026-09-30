@@ -49,12 +49,14 @@ export async function list(req: Request, res: Response): Promise<void> {
     minPrice,
     maxPrice,
     featured: q.featured,
+    attributes: q.attr,
   });
   sendSuccess(res, data);
 }
 
-export async function facets(_req: Request, res: Response): Promise<void> {
-  const data = await getProductFacets();
+export async function facets(req: Request, res: Response): Promise<void> {
+  const category = typeof req.query.category === "string" ? req.query.category : undefined;
+  const data = await getProductFacets(category);
   sendSuccess(res, data);
 }
 

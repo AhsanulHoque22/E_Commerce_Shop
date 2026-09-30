@@ -13,7 +13,13 @@ export type ProductFacets = {
   priceMin: number;
   priceMax: number;
   brands: string[];
+  attributeFacets: Record<string, string[]>;
 };
+
+/** Query-string param name for one attribute filter, e.g. attr[ram]. */
+export function attrParamKey(key: string): string {
+  return `attr[${key}]`;
+}
 
 /** Ensures every node has `children` so tree UIs never throw on missing keys. */
 export function normalizeCategoryTree(nodes: unknown): CategoryTreeNode[] {
@@ -82,8 +88,8 @@ function CategoryTree({
                 className={
                   "min-h-6 flex-1 break-words rounded-md px-0.5 py-0.5 text-left text-sm leading-snug " +
                   (selected
-                    ? "bg-bg font-semibold text-accent"
-                    : "text-ink hover:bg-bg hover:text-accent")
+                    ? "bg-bg font-semibold text-accent-400"
+                    : "text-ink hover:bg-bg hover:text-accent-400")
                 }
               >
                 {n.name}
@@ -144,6 +150,17 @@ export function ProductsShopSidebar({
     });
   }
 
+  function toggleAttr(key: string, value: string) {
+    const paramKey = attrParamKey(key);
+    patchParams((n) => {
+      if (n.get(paramKey) === value) {
+        n.delete(paramKey);
+      } else {
+        n.set(paramKey, value);
+      }
+    });
+  }
+
   function applyPriceBrand() {
     let minV = draftMin.trim();
     let maxV = draftMax.trim();
@@ -185,11 +202,16 @@ export function ProductsShopSidebar({
     setSp(n, { replace: true });
   }
 
+  const attributeFacets = facets?.attributeFacets ?? {};
+  const attrKeys = Object.keys(attributeFacets);
+  const hasAttrFilters = attrKeys.some((k) => sp.has(attrParamKey(k)));
+
   const hasFilters =
     Boolean(category) ||
     Boolean(brandInUrl) ||
     Boolean(minInUrl) ||
-    Boolean(maxInUrl);
+    Boolean(maxInUrl) ||
+    hasAttrFilters;
 
   const pm = facets?.priceMin ?? 0;
   const px = facets?.priceMax ?? 0;
@@ -211,7 +233,7 @@ export function ProductsShopSidebar({
               <button
                 type="button"
                 onClick={() => clearAll()}
-                className="text-xs font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent-400 hover:underline"
               >
                 Clear all
               </button>
@@ -231,7 +253,7 @@ export function ProductsShopSidebar({
               className={
                 "mt-3 w-full rounded-lg px-1.5 py-1.5 text-left text-sm " +
                 (!category
-                  ? "bg-bg font-semibold text-accent"
+                  ? "bg-bg font-semibold text-accent-400"
                   : "text-muted hover:bg-bg hover:text-ink")
               }
             >
@@ -297,13 +319,42 @@ export function ProductsShopSidebar({
               </label>
             </div>
           </div>
+
+          {attrKeys.map((key) => {
+            const selected = sp.get(attrParamKey(key)) ?? "";
+            return (
+              <div key={key} className="mt-5 border-t border-border pt-5">
+                <h3 className="text-xs font-semibold capitalize text-muted">
+                  {key.replace(/_/g, " ")}
+                </h3>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {attributeFacets[key].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => toggleAttr(key, value)}
+                      aria-pressed={selected === value}
+                      className={
+                        "rounded-full border px-3 py-1 text-xs " +
+                        (selected === value
+                          ? "border-accent bg-accent/10 font-semibold text-accent-400"
+                          : "border-border text-muted hover:bg-bg hover:text-ink")
+                      }
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="shrink-0 border-t border-border bg-surface px-3 py-3">
           <button
             type="button"
             onClick={() => applyPriceBrand()}
-            className="w-full rounded-xl bg-ink py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
           >
             Apply price &amp; brand
           </button>
