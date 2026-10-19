@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 const WA = "8801834123393";
 const PHONE_E164 = "+8801820223003";
-const SUPPORT_EMAIL = "support@auroragadgets.test";
+const SUPPORT_EMAIL = "support@rynex.com.bd";
 
 function IconWhatsApp({ className }: { className?: string }) {
   return (
@@ -152,10 +152,10 @@ export function SiteFooter() {
               iconWrapClass="bg-bg border border-border text-ink"
               label="Shop"
             >
-              R.B. Enterprise
+              RYNEX
             </ContactRow>
             <p className="mt-4 text-sm text-muted">
-              Aurora Gadgets — trusted tech in Chittagong.
+              RYNEX — trusted tech in Chittagong.
             </p>
             <div className="mt-5">
               <p className="text-xs font-medium uppercase tracking-wide text-subtle">
@@ -197,12 +197,12 @@ export function SiteFooter() {
               #3B, Bipani Bitan, New Market, Chittagong
             </ContactRow>
             <ContactRow
-              href="https://www.facebook.com/Aurora_Gadgets"
+              href="https://www.facebook.com/rynex.bd.tech"
               icon={<IconFacebook className="h-6 w-6 text-white" />}
               iconWrapClass="bg-[#1877F2] shadow-sm"
               label="Facebook"
             >
-              <span className="break-all">www.facebook.com/Aurora_Gadgets</span>
+              <span className="break-all">facebook.com/rynex.bd.tech</span>
             </ContactRow>
             </div>
           </div>
@@ -210,12 +210,7 @@ export function SiteFooter() {
 
         <div className="mt-10 border-t border-border pt-8 text-center text-xs text-subtle">
           <p className="text-[11px] leading-relaxed text-muted">
-            © {new Date().getFullYear()} R.B. Enterprise. All rights reserved. Aurora Gadgets
-            is a trading name of R.B. Enterprise.
-          </p>
-          <p className="mt-2 text-[11px] leading-relaxed text-subtle">
-            Demo notice: This copyright notice is sample text for development and does not
-            constitute legal advice. Replace with counsel-approved wording before production.
+            © {new Date().getFullYear()} RYNEX. All rights reserved.
           </p>
           <p className="mt-3 text-subtle">Secure HTTPS checkout</p>
         </div>
