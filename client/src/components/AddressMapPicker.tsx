@@ -19,7 +19,7 @@ async function reverseGeocodeOpenStreetMap(lat: number, lng: number): Promise<st
   const res = await fetch(url, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "AuroraGadgetsShop/1.0 (address-picker)",
+      "User-Agent": "RynexShop/1.0 (address-picker)",
     },
   });
   if (!res.ok) {

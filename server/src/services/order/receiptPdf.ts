@@ -21,7 +21,7 @@ export function buildReceiptPdf(o: ReceiptOrderInput): Promise<Buffer> {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(20).font("Helvetica-Bold").text("Aurora Gadgets");
+    doc.fontSize(20).font("Helvetica-Bold").text("RYNEX");
     doc.moveDown(0.3);
     doc.fontSize(10).font("Helvetica").fillColor("#444444");
     doc.text("Payment receipt");

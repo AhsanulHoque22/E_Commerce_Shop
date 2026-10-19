@@ -44,7 +44,7 @@ const U = {
 };
 
 async function main() {
-  const adminEmail = "admin@example.com";
+  const adminEmail = "admin@rynex.com.bd";
   const adminPass = "Admin12345678!";
   const hash = await bcrypt.hash(adminPass, 12);
 
@@ -55,7 +55,7 @@ async function main() {
       email: adminEmail,
       passwordHash: hash,
       role: Role.ADMIN,
-      firstName: "Store",
+      firstName: "RYNEX",
       lastName: "Admin",
       phone: "+8801999999999",
       phoneVerifiedAt: new Date(),

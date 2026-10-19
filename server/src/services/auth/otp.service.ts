@@ -97,7 +97,7 @@ export async function requestRegisterOtp(
 
   await sendSms(
     phoneNorm,
-    `Your Aurora Gadgets verification code is: ${code}`
+    `Your RYNEX verification code is: ${code}`
   );
 
   if (env.NODE_ENV !== "production" || env.OTP_RETURN_IN_RESPONSE) {
