@@ -16,8 +16,8 @@ This file is the single source of truth for names, URLs, and contact details.
 
 | Service | URL |
 |---|---|
-| Frontend (Vercel) | `https://rynex-shop.vercel.app` |
-| Frontend (Vercel alt) | `https://e-commerce-shop-iota-jade.vercel.app` |
+| Frontend (Vercel) | `https://rynex-bd-tech.vercel.app` |
+| Frontend (Vercel alt) | `https://rynex-shop.vercel.app` |
 | Backend API (Render) | `https://e-commerce-shop-api-m4b1.onrender.com` |
 | GitHub repo | `https://github.com/AhsanulHoque22/E_Commerce_Shop` |
 | Facebook page | `https://www.facebook.com/rynex.bd.tech` |
