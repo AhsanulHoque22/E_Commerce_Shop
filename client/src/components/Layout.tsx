@@ -37,11 +37,12 @@ export function Layout() {
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
           <div className="flex min-h-11 flex-nowrap items-center gap-2 sm:gap-3 lg:gap-4">
-            <Link
-              to="/"
-              className="shrink-0 font-display text-base font-semibold tracking-tight sm:text-lg"
-            >
-              RYNEX
+            <Link to="/" className="shrink-0" aria-label="RYNEX home">
+              <img
+                src="/logo.png"
+                alt="RYNEX"
+                className="h-9 w-auto object-contain"
+              />
             </Link>
             <nav className="flex shrink-0 items-center gap-3 sm:gap-5 lg:gap-6">
               <Link className="whitespace-nowrap text-sm text-muted hover:text-ink" to="/products">
