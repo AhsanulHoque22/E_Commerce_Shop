@@ -41,7 +41,7 @@ export function Layout() {
               to="/"
               className="shrink-0 font-display text-base font-semibold tracking-tight sm:text-lg"
             >
-              Aurora Gadgets
+              RYNEX
             </Link>
             <nav className="flex shrink-0 items-center gap-3 sm:gap-5 lg:gap-6">
               <Link className="whitespace-nowrap text-sm text-muted hover:text-ink" to="/products">
